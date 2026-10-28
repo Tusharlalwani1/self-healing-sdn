@@ -1,0 +1,25 @@
+# Python virtual environment
+sdn-env/
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Frontend dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Generated files
+*.log
+
+# Editor files
+.vscode/
+.idea/

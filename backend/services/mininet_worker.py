@@ -1,0 +1,451 @@
+#!/usr/bin/env python3
+"""
+Mininet Worker Daemon
+Runs with elevated privileges (sudo) and manages the Mininet network object.
+Communicates with FastAPI via a local Unix Domain Socket (/tmp/mininet_worker.sock).
+"""
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+from typing import Dict, Any, Optional
+
+# Mininet imports
+try:
+    from mininet.net import Mininet
+    from mininet.node import RemoteController, OVSSwitch
+    from mininet.link import TCLink
+    from mininet.clean import cleanup
+except ImportError:
+    Mininet = None
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] (worker) %(message)s'
+)
+logger = logging.getLogger("mininet_worker")
+
+SOCKET_PATH = "/tmp/mininet_worker.sock"
+
+class MininetWorker:
+    def __init__(self):
+        self.net: Optional[Mininet] = None
+        self.traffic_jobs: Dict[str, Dict[str, Any]] = {}
+        self.traffic_lock = threading.Lock()
+        self.running = True
+
+    @staticmethod
+    def _clean_simulation_resources():
+        """Clean only simulation bridges and links without killing ryu-manager or other processes."""
+        for sw in ['s1', 's2', 's3', 's4']:
+            subprocess.run(["ovs-vsctl", "--if-exists", "del-br", sw], capture_output=True, check=False)
+
+    def build_network(self, controller_ip="127.0.0.1", controller_port=6653):
+        if Mininet is None:
+            raise RuntimeError("Mininet library is not installed in current Python environment")
+
+        if self.net is not None:
+            self.stop_network()
+
+        logger.info(f"Building diamond topology connecting to controller {controller_ip}:{controller_port}")
+        self._clean_simulation_resources()
+
+        net = Mininet(controller=None, switch=OVSSwitch, link=TCLink, autoSetMacs=True)
+        net.addController('c0', controller=RemoteController, ip=controller_ip, port=controller_port)
+
+        s1 = net.addSwitch('s1', protocols='OpenFlow13')
+        s2 = net.addSwitch('s2', protocols='OpenFlow13')
+        s3 = net.addSwitch('s3', protocols='OpenFlow13')
+        s4 = net.addSwitch('s4', protocols='OpenFlow13')
+
+        h1 = net.addHost('h1', ip='10.0.0.1/24')
+        h2 = net.addHost('h2', ip='10.0.0.2/24')
+
+        # Add physical links matching topo_diamond.py
+        net.addLink(h1, s1)
+        net.addLink(h2, s4)
+        net.addLink(s1, s2, bw=10, delay='5ms')
+        net.addLink(s2, s4, bw=10, delay='5ms')
+        net.addLink(s1, s3, bw=10, delay='5ms')
+        net.addLink(s3, s4, bw=10, delay='5ms')
+
+        logger.info("Starting Mininet network...")
+        net.start()
+        self.net = net
+        logger.info("Mininet network started successfully!")
+        return {"status": "ok", "message": "Mininet network started"}
+
+    def stop_network(self):
+        logger.info("Stopping Mininet network...")
+        with self.traffic_lock:
+            for job_id, job in list(self.traffic_jobs.items()):
+                self._stop_traffic_job(job_id)
+
+        if self.net:
+            try:
+                self.net.stop()
+            except Exception as e:
+                logger.warning(f"Error during net.stop(): {e}")
+            self.net = None
+
+        self._clean_simulation_resources()
+        logger.info("Mininet network stopped and cleaned up.")
+        return {"status": "ok", "message": "Network stopped"}
+
+    def get_topology(self) -> Dict[str, Any]:
+        if not self.net:
+            return {"status": "not_running", "nodes": [], "links": []}
+
+        nodes = []
+        for s in self.net.switches:
+            dpid_int = int(s.dpid, 16) if isinstance(s.dpid, str) else int(s.dpid)
+            ports = {}
+            for intf_name, intf in s.intfs.items():
+                ports[intf_name] = {
+                    "port_no": s.ports.get(intf),
+                    "up": intf.isUp(),
+                    "ip": intf.IP(),
+                    "mac": intf.MAC()
+                }
+            nodes.append({
+                "id": s.name,
+                "name": s.name,
+                "type": "switch",
+                "dpid": dpid_int,
+                "ports": ports
+            })
+
+        for h in self.net.hosts:
+            ports = {}
+            for intf_name, intf in h.intfs.items():
+                ports[intf_name] = {
+                    "up": intf.isUp(),
+                    "ip": intf.IP(),
+                    "mac": intf.MAC()
+                }
+            nodes.append({
+                "id": h.name,
+                "name": h.name,
+                "type": "host",
+                "ip": h.IP(),
+                "mac": h.MAC(),
+                "ports": ports
+            })
+
+        links = []
+        for l in self.net.links:
+            intf1, intf2 = l.intf1, l.intf2
+            node1, node2 = intf1.node.name, intf2.node.name
+            is_up = intf1.isUp() and intf2.isUp()
+            link_id = f"{node1}-{node2}" if node1 < node2 else f"{node2}-{node1}"
+            
+            # Port numbers if switch
+            port1 = intf1.node.ports.get(intf1) if hasattr(intf1.node, 'ports') else None
+            port2 = intf2.node.ports.get(intf2) if hasattr(intf2.node, 'ports') else None
+
+            links.append({
+                "id": link_id,
+                "src": node1,
+                "dst": node2,
+                "src_intf": intf1.name,
+                "dst_intf": intf2.name,
+                "src_port": port1,
+                "dst_port": port2,
+                "status": "UP" if is_up else "DOWN",
+                "bw": 10.0,
+                "delay": "5ms"
+            })
+
+        return {
+            "status": "ok",
+            "switches": [s.name for s in self.net.switches],
+            "hosts": [h.name for h in self.net.hosts],
+            "nodes": nodes,
+            "links": links
+        }
+
+    def set_link_status(self, node1: str, node2: str, status: str) -> Dict[str, Any]:
+        if not self.net:
+            return {"status": "error", "message": "Network is not running"}
+
+        status = status.lower()
+        if status not in ("up", "down"):
+            return {"status": "error", "message": "Status must be 'up' or 'down'"}
+
+        logger.info(f"Setting link {node1} <-> {node2} to {status}...")
+        try:
+            self.net.configLinkStatus(node1, node2, status)
+            
+            # If using OVS, also enforce port link state directly via ovs-ofctl if needed
+            # Find switch and port
+            for sw_name in (node1, node2):
+                sw = self.net.get(sw_name)
+                if sw and isinstance(sw, OVSSwitch):
+                    other = node2 if sw_name == node1 else node1
+            for port_no, intf in sw.intfs.items():
+                if intf and intf.link:
+                    other = node2 if sw_name == node1 else node1
+                    if (intf.link.intf1.node.name == other or intf.link.intf2.node.name == other):
+                        cmd = ["ip", "link", "set", str(intf.name), status]
+                        subprocess.run(cmd, check=False)
+
+            return {
+                "status": "ok",
+                "node1": node1,
+                "node2": node2,
+                "link_status": status.upper(),
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            logger.error(f"Failed to set link status: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def pingall(self) -> Dict[str, Any]:
+        if not self.net:
+            return {"status": "error", "message": "Network is not running"}
+        
+        loss = self.net.pingAll()
+        return {"status": "ok", "loss_percent": loss}
+
+    def start_traffic(self, src: str, dst: str, interval: float, count: int, job_id: str) -> Dict[str, Any]:
+        if not self.net:
+            return {"status": "error", "message": "Network is not running"}
+
+        src_node = self.net.get(src)
+        dst_node = self.net.get(dst)
+        if not src_node or not dst_node:
+            return {"status": "error", "message": f"Nodes {src} or {dst} not found"}
+
+        dst_ip = dst_node.IP()
+        with self.traffic_lock:
+            # Stop existing job if any
+            if job_id in self.traffic_jobs:
+                self._stop_traffic_job(job_id)
+
+            # Prime ARP / OpenFlow path discovery if needed
+            src_node.cmd(f"ping -c 1 -W 1 {dst_ip}")
+
+            cmd = ["stdbuf", "-oL", "-eL", "ping", "-i", str(interval), "-c", str(count), dst_ip]
+            logger.info(f"Starting traffic job {job_id}: {' '.join(cmd)} on {src}")
+            proc = src_node.popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+            job_data = {
+                "job_id": job_id,
+                "src": src,
+                "dst": dst,
+                "proc": proc,
+                "active": True,
+                "transmitted": 0,
+                "received": 0,
+                "loss_percent": 0.0,
+                "min_rtt": None,
+                "avg_rtt": None,
+                "max_rtt": None,
+                "last_rtt": None,
+                "history": [],
+                "start_time": time.time(),
+                "duration_sec": 0.0
+            }
+            self.traffic_jobs[job_id] = job_data
+
+            # Start thread to read output
+            t = threading.Thread(target=self._monitor_traffic, args=(job_id, proc), daemon=True)
+            t.start()
+
+        return {"status": "ok", "job_id": job_id, "active": True}
+
+    def _monitor_traffic(self, job_id: str, proc: subprocess.Popen):
+        seq_pattern = re.compile(r"icmp_seq=(\d+)\s+ttl=\d+\s+time=([\d\.]+)\s*ms")
+        stats_pattern = re.compile(r"(\d+)\s+packets transmitted,\s+(\d+)\s+(?:packets\s+)?received.*?([\d\.]+)%\s+packet loss")
+        rtt_pattern = re.compile(r"rtt min/avg/max/mdev =\s+([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+)\s*ms")
+
+        expected_seq = 1
+        for line in proc.stdout:
+            line = line.strip()
+            with self.traffic_lock:
+                if job_id not in self.traffic_jobs:
+                    break
+                job = self.traffic_jobs[job_id]
+                job["duration_sec"] = time.time() - job["start_time"]
+
+                # Parse live ping responses
+                m_seq = seq_pattern.search(line)
+                if m_seq:
+                    seq = int(m_seq.group(1))
+                    rtt = float(m_seq.group(2))
+                    job["transmitted"] = max(job["transmitted"], seq)
+                    job["received"] += 1
+                    job["last_rtt"] = rtt
+                    job["loss_percent"] = max(0.0, round(((job["transmitted"] - job["received"]) / job["transmitted"]) * 100.0, 1))
+                    job["history"].append({
+                        "seq": seq,
+                        "rtt": rtt,
+                        "success": True,
+                        "t": round(job["duration_sec"], 2)
+                    })
+                    if len(job["history"]) > 200:
+                        job["history"].pop(0)
+
+                # Parse final summary
+                m_stats = stats_pattern.search(line)
+                if m_stats:
+                    job["transmitted"] = int(m_stats.group(1))
+                    job["received"] = int(m_stats.group(2))
+                    job["loss_percent"] = float(m_stats.group(3))
+
+                m_rtt = rtt_pattern.search(line)
+                if m_rtt:
+                    job["min_rtt"] = float(m_rtt.group(1))
+                    job["avg_rtt"] = float(m_rtt.group(2))
+                    job["max_rtt"] = float(m_rtt.group(3))
+
+        proc.wait()
+        with self.traffic_lock:
+            if job_id in self.traffic_jobs:
+                self.traffic_jobs[job_id]["active"] = False
+
+    def stop_traffic(self, job_id: str) -> Dict[str, Any]:
+        with self.traffic_lock:
+            return self._stop_traffic_job(job_id)
+
+    def _stop_traffic_job(self, job_id: str) -> Dict[str, Any]:
+        if job_id not in self.traffic_jobs:
+            return {"status": "not_found", "job_id": job_id}
+        job = self.traffic_jobs[job_id]
+        proc = job.get("proc")
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        job["active"] = False
+        return {"status": "ok", "job_id": job_id, "active": False}
+
+    def get_traffic_stats(self, job_id: str) -> Dict[str, Any]:
+        with self.traffic_lock:
+            if job_id not in self.traffic_jobs:
+                return {"status": "not_found", "active": False}
+            job = self.traffic_jobs[job_id]
+            res = {k: v for k, v in job.items() if k != "proc"}
+            return res
+
+    def get_switch_info(self, dpid: int) -> Dict[str, Any]:
+        sw_name = f"s{dpid}"
+        flows_out = subprocess.run(
+            ["ovs-ofctl", "-O", "OpenFlow13", "dump-flows", sw_name],
+            capture_output=True, text=True, check=False
+        ).stdout
+        groups_out = subprocess.run(
+            ["ovs-ofctl", "-O", "OpenFlow13", "dump-groups", sw_name],
+            capture_output=True, text=True, check=False
+        ).stdout
+        ports_out = subprocess.run(
+            ["ovs-ofctl", "-O", "OpenFlow13", "dump-ports", sw_name],
+            capture_output=True, text=True, check=False
+        ).stdout
+
+        return {
+            "dpid": dpid,
+            "switch": sw_name,
+            "flows": flows_out.strip().split("\n") if flows_out else [],
+            "groups": groups_out.strip().split("\n") if groups_out else [],
+            "ports": ports_out.strip().split("\n") if ports_out else []
+        }
+
+    async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        while self.running:
+            line = await reader.readline()
+            if not line:
+                break
+            try:
+                req = json.loads(line.decode("utf-8"))
+                cmd = req.get("command")
+                resp = {}
+                if cmd == "start":
+                    resp = self.build_network(
+                        req.get("controller_ip", "127.0.0.1"),
+                        req.get("controller_port", 6653)
+                    )
+                elif cmd == "stop":
+                    resp = self.stop_network()
+                elif cmd == "get_topology":
+                    resp = self.get_topology()
+                elif cmd == "set_link_status":
+                    resp = self.set_link_status(req["node1"], req["node2"], req["status"])
+                elif cmd == "pingall":
+                    resp = self.pingall()
+                elif cmd == "start_traffic":
+                    resp = self.start_traffic(
+                        req["src"], req["dst"], req.get("interval", 0.1),
+                        req.get("count", 100), req["job_id"]
+                    )
+                elif cmd == "stop_traffic":
+                    resp = self.stop_traffic(req["job_id"])
+                elif cmd == "get_traffic_stats":
+                    resp = self.get_traffic_stats(req["job_id"])
+                elif cmd == "get_switch_info":
+                    resp = self.get_switch_info(int(req["dpid"]))
+                elif cmd == "ping":
+                    resp = {"status": "pong", "time": time.time()}
+                else:
+                    resp = {"status": "error", "message": f"Unknown command: {cmd}"}
+
+                writer.write(json.dumps(resp).encode("utf-8") + b"\n")
+                await writer.drain()
+            except Exception as e:
+                logger.error(f"Error handling request: {e}")
+                err_resp = {"status": "error", "message": str(e)}
+                writer.write(json.dumps(err_resp).encode("utf-8") + b"\n")
+                await writer.drain()
+
+        writer.close()
+        await writer.wait_closed()
+
+
+async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--socket", default=SOCKET_PATH, help="Unix domain socket path")
+    args = parser.parse_args()
+
+    sock_path = args.socket
+    if os.path.exists(sock_path):
+        os.remove(sock_path)
+
+    worker = MininetWorker()
+    server = await asyncio.start_unix_server(worker.handle_client, path=sock_path)
+    
+    # Make socket readable/writable by non-root processes (e.g. FastAPI)
+    os.chmod(sock_path, 0o666)
+    logger.info(f"Mininet worker server listening on Unix socket: {sock_path}")
+
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    def _sig_handler():
+        logger.info("Received termination signal, shutting down...")
+        worker.stop_network()
+        stop_event.set()
+
+    for s in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(s, _sig_handler)
+
+    try:
+        await stop_event.wait()
+    finally:
+        server.close()
+        await server.wait_closed()
+        if os.path.exists(sock_path):
+            os.remove(sock_path)
+        logger.info("Mininet worker server terminated cleanly.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
