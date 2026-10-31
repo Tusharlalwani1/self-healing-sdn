@@ -1,6 +1,0 @@
-[
- {"click":"Experiment Lab","wait":1000},
- {"eval":"(()=>{const ss=document.querySelectorAll('select');for(const [i,v] of [[1,'comparison'],[2,'s1-s2'],[3,'100'],[4,'0.1'],[5,'1']]){ss[i].value=v;ss[i].dispatchEvent(new Event('change',{bubbles:true}));}return [...ss].map(s=>s.value)})()","snapshot":"comparison configured"},
- {"click":"Run 3-Way Comparison","wait":2000,"snapshot":"comparison running"},
- {"wait":1000,"until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Run 3-Way Comparison'))","snapshot":"comparison completion or progress","sdn":"comparison-end"}
-]

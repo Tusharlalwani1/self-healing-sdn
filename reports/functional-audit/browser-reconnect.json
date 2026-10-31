@@ -1,6 +1,0 @@
-[
- {"cdp":"Page.addScriptToEvaluateOnNewDocument","params":{"source":"window.__auditWS=[];const OriginalWS=window.WebSocket;window.WebSocket=class extends OriginalWS{constructor(...args){super(...args);window.__auditWS.push(this)}};"}},
- {"navigate":"http://172.29.218.67:8000","wait":2500,"until":"!!window.__auditWS?.some(w=>w.readyState===1)","snapshot":"reconnect test initial"},
- {"eval":"(()=>{const list=window.__auditWS.filter(w=>w.readyState===1);list.forEach(w=>w.close(4000,'audit disconnect'));return {closed:list.length,states:window.__auditWS.map(w=>w.readyState)}})()","wait":100,"snapshot":"actual WS disconnect"},
- {"wait":3500,"until":"window.__auditWS.some(w=>w.readyState===1)","eval":"({connectionsCreated:window.__auditWS.length,states:window.__auditWS.map(w=>w.readyState)})","snapshot":"actual WS automatic reconnect"}
-]

@@ -1,8 +1,0 @@
-[
- {"navigate":"http://172.29.218.67:8000","wait":2000,"until":"!!document.querySelector('select') && document.querySelector('select').value==='fast_failover'","snapshot":"final stopped overview","screenshot":"final-stopped.png"},
- {"click":"Controllers","snapshot":"final stopped controller mislabeled running"},
- {"click":"Traffic Monitor","snapshot":"final stopped stale traffic"},
- {"cdp":"Network.emulateNetworkConditions","params":{"offline":true,"latency":0,"downloadThroughput":0,"uploadThroughput":0},"wait":3500,"snapshot":"browser offline stale values"},
- {"cdp":"Network.emulateNetworkConditions","params":{"offline":false,"latency":0,"downloadThroughput":-1,"uploadThroughput":-1},"wait":6000,"snapshot":"browser online reconnect"},
- {"click":"NOC Overview","snapshot":"final restored browser stopped state"}
-]

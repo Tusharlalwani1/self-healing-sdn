@@ -1,8 +1,0 @@
-[
- {"click":"Start Simulation","wait":1000,"until":"document.body.innerText.includes('SIMULATION RUNNING') || document.body.innerText.includes('SIMULATION ERROR')","snapshot":"dashboard start after selecting baseline"},
- {"click":"Controllers","snapshot":"controller preserved on start"},
- {"click":"Activate Baseline","wait":1000,"until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Stop Simulation')&&!b.disabled)","snapshot":"baseline ready with worker fixture"},
- {"click":"Traffic Monitor"},
- {"eval":"(()=>{const s=document.querySelectorAll('select')[4];s.value='1000';s.dispatchEvent(new Event('change',{bubbles:true}));return s.value})()"},
- {"click":"Start Traffic Stream","wait":2000,"snapshot":"baseline live ping"}
-]
