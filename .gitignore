@@ -23,3 +23,5 @@ frontend/dist/
 # Editor files
 .vscode/
 .idea/
+# Local functional audit artifacts
+reports/functional-audit/
