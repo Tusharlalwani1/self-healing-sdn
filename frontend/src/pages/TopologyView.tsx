@@ -8,6 +8,7 @@ import { TopologyLink, TopologyNode } from '../types';
 
 export const TopologyView: React.FC = () => {
   const { topology, setLinkStatus, restoreAllLinks } = useSDNStore();
+  const activePath = topology.active_paths?.[0] ?? [];
   const [inspectSwitch, setInspectSwitch] = useState<TopologyNode | null>(null);
   const [inspectLink, setInspectLink] = useState<TopologyLink | null>(null);
 
@@ -106,7 +107,7 @@ export const TopologyView: React.FC = () => {
             <div className="space-y-1 font-mono text-[11px]">
               <div className="text-slate-400">Active Path:</div>
               <div className="p-2 rounded-lg bg-slate-900 text-cyan-300 border border-cyan-500/20 font-bold">
-                {topology.active_paths.length ? topology.active_paths[0].join(' → ') : 'Awaiting flow establishment'}
+                {activePath.length ? activePath.join(' → ') : 'Awaiting flow establishment'}
               </div>
             </div>
           </div>
