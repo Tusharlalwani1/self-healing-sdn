@@ -32,4 +32,9 @@ MININET_SOCKET_PATH = "/tmp/mininet_worker.sock"
 HOST = os.getenv("SDN_HOST", "0.0.0.0")
 PORT = int(os.getenv("SDN_PORT", 8000))
 WSL_DISTRO = os.getenv("WSL_DISTRO", "Ubuntu-22.04")
-VENV_PYTHON = BASE_DIR / "sdn-env" / "bin" / "python3"
+VENV_PYTHON = Path(
+    os.getenv(
+        "SDN_VENV_PYTHON",
+        str(Path.home() / "sdn-env" / "bin" / "python3")
+    )
+)
