@@ -13,7 +13,7 @@ class ControllerSelectRequest(BaseModel):
     controller_type: str = Field(..., description="baseline, reactive, or fast_failover")
 
 class SimulationStartRequest(BaseModel):
-    controller_type: Optional[str] = "reactive"
+    controller_type: Optional[str] = None
 
 class NodeInfo(BaseModel):
     id: str
