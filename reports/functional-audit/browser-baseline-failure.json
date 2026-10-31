@@ -1,0 +1,11 @@
+[
+ {"click":"Traffic Monitor"},
+ {"click":"Stop Traffic Generator"},
+ {"click":"Start Traffic Stream","wait":1200,"snapshot":"baseline before active link failure","sdn":"baseline-before-active-failure"},
+ {"click":"Failure Simulator"},
+ {"click":"Fail Primary Link","wait":2500,"snapshot":"baseline active link down","sdn":"baseline-down"},
+ {"click":"NOC Overview","wait":1800,"snapshot":"baseline outage metrics","screenshot":"baseline-outage.png","sdn":"baseline-outage"},
+ {"click":"Restore All Network Links","wait":2000,"snapshot":"baseline restored","sdn":"baseline-restored"},
+ {"click":"Traffic Monitor"},
+ {"click":"Stop Traffic Generator","wait":1500,"snapshot":"baseline manually stopped traffic","sdn":"baseline-traffic-stopped"}
+]

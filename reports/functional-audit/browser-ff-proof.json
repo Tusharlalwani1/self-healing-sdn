@@ -1,0 +1,10 @@
+[
+ {"eval":"fetch('/api/traffic/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'h1',dst:'h2',count:1000,interval:0.5})}).then(r=>r.json())","wait":1000,"snapshot":"FF proof traffic API initiated","sdn":"ff-proof-before"},
+ {"click":"Failure Simulator","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Fail Primary Link')&&!b.disabled)"},
+ {"signal":"STOP","wait":50},
+ {"click":"Fail Primary Link","wait":1000,"snapshot":"FF proof primary down controller paused","sdn":"ff-proof-down"},
+ {"signal":"CONT","wait":100},
+ {"click":"NOC Overview"},
+ {"click":"Restore All Network Links","wait":500},
+ {"eval":"fetch('/api/traffic/stop',{method:'POST'}).then(r=>r.json())","snapshot":"FF proof stopped"}
+]

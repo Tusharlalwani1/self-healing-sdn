@@ -1,0 +1,13 @@
+[
+ {"click":"Controllers"},
+ {"click":"Activate Reactive","wait":1000,"until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Stop Simulation')&&!b.disabled)","snapshot":"reactive selected","sdn":"reactive-mode-switch"},
+ {"click":"Traffic Monitor","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Start Traffic Stream')&&!b.disabled)"},
+ {"eval":"(()=>{const s=document.querySelectorAll('select')[4];s.value='1000';s.dispatchEvent(new Event('change',{bubbles:true}));return s.value})()"},
+ {"click":"Start Traffic Stream","wait":2000,"snapshot":"reactive traffic before failure","sdn":"reactive-before"},
+ {"click":"Failure Simulator","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Fail Backup Link')&&!b.disabled)"},
+ {"click":"Fail Backup Link","wait":2500,"snapshot":"reactive s1 s3 failure","sdn":"reactive-down"},
+ {"click":"NOC Overview","wait":1000,"snapshot":"reactive healed overview","sdn":"reactive-healed","screenshot":"reactive-healed.png"},
+ {"click":"Restore All Network Links","wait":1000},
+ {"click":"Traffic Monitor"},
+ {"click":"Stop Traffic Generator","wait":1000,"snapshot":"reactive final","sdn":"reactive-final"}
+]

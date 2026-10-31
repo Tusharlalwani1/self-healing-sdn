@@ -1,0 +1,19 @@
+{
+  "id": "exp_20261031_004348_fast_failover",
+  "controller": "fast_failover",
+  "start_time": "2026-10-31T00:43:48.947549",
+  "end_time": "2026-10-31T00:43:58.895692",
+  "status": "CANCELLED",
+  "packets_transmitted": 0,
+  "packets_received": 0,
+  "packet_loss_percent": 0.0,
+  "avg_rtt_ms": null,
+  "min_rtt_ms": null,
+  "max_rtt_ms": null,
+  "failure_link": "s1-s2",
+  "failure_timestamp": null,
+  "recovery_event": null,
+  "recovery_duration_ms": null,
+  "summary_json": "{}",
+  "summary": {}
+}

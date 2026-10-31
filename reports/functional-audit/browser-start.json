@@ -1,0 +1,9 @@
+[
+ {"click":"Controllers"},
+ {"click":"Activate Baseline","wait":3500,"snapshot":"baseline selected"},
+ {"click":"Start Simulation","wait":7000,"snapshot":"start after baseline selected","screenshot":"start-selected-baseline.png"},
+ {"click":"Controllers"},
+ {"click":"Activate Baseline","wait":4500,"snapshot":"baseline running fixture"},
+ {"click":"Traffic Monitor"},
+ {"click":"Start Traffic","wait":2500,"snapshot":"baseline traffic started"}
+]

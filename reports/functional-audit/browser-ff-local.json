@@ -1,0 +1,14 @@
+[
+ {"navigate":"http://172.29.218.67:8000","wait":2000,"until":"!!document.body && document.body.innerText.includes('SDN CONTROL CENTER')","snapshot":"fresh browser running FF"},
+ {"click":"Traffic Monitor","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Start Traffic Stream')&&!b.disabled)"},
+ {"eval":"(()=>{const ss=document.querySelectorAll('select');for(const [i,v]of [[3,'0.5'],[4,'1000']]){ss[i].value=v;ss[i].dispatchEvent(new Event('change',{bubbles:true}));}return [...ss].map(s=>s.value)})()"},
+ {"click":"Start Traffic Stream","wait":2000,"snapshot":"FF local proof traffic","sdn":"ff-local-before"},
+ {"signal":"STOP","wait":300},
+ {"click":"Failure Simulator","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Fail Primary Link')&&!b.disabled)"},
+ {"click":"Fail Primary Link","wait":2500,"snapshot":"FF controller paused primary down","sdn":"ff-local-paused-down"},
+ {"signal":"CONT","wait":500},
+ {"click":"NOC Overview"},
+ {"click":"Restore All Network Links","wait":1000},
+ {"click":"Traffic Monitor"},
+ {"click":"Stop Traffic Generator","wait":1500,"snapshot":"FF local proof complete","sdn":"ff-local-final"}
+]

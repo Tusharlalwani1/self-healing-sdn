@@ -1,0 +1,18 @@
+[
+ {"click":"Network Topology","wait":800},
+ {"eval":"(()=>{document.querySelector('.react-flow__node[data-id=\"s1\"]')?.dispatchEvent(new MouseEvent('click',{bubbles:true}));return !!document.querySelector('.react-flow__node[data-id=\"s1\"]')})()","snapshot":"switch inspector flows"},
+ {"click":"Groups","snapshot":"switch inspector groups"},
+ {"click":"Ports","snapshot":"switch inspector ports"},
+ {"eval":"(()=>{const m=document.querySelector('.fixed.inset-0');const b=[...m.querySelectorAll('button')];return b.map(x=>({text:x.textContent,html:x.innerHTML.slice(0,90)}))})()"},
+ {"eval":"document.querySelector('.fixed.inset-0 button:last-child')?.click()"},
+ {"eval":"document.querySelector('.fixed.inset-0')?.querySelector('button:nth-child(2)')?.click()"},
+ {"navigate":"http://172.29.218.67:8000","wait":1500},
+ {"click":"Network Topology","wait":800},
+ {"eval":"document.querySelector('.react-flow__edge[data-id=\"s1-s2\"]')?.dispatchEvent(new MouseEvent('click',{bubbles:true}))","snapshot":"link inspector before toggle"},
+ {"click":"Disconnect Link","wait":1000,"snapshot":"link inspector after toggle","sdn":"inspector-link-toggle"},
+ {"click":"Disconnect Link","wait":1000,"snapshot":"link inspector repeated stale toggle"},
+ {"navigate":"http://172.29.218.67:8000","wait":1500},
+ {"click":"Event Logs"},
+ {"eval":"(()=>{const el=document.querySelector('input');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,'controller');el.dispatchEvent(new Event('input',{bubbles:true}));return el.value})()","snapshot":"event search"},
+ {"click":"System & Config","snapshot":"system final diagnostics"}
+]

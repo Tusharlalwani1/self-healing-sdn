@@ -1,0 +1,13 @@
+[
+ {"click":"Controllers"},
+ {"click":"Activate Fast","wait":1500,"until":"document.querySelector('select').value === 'fast_failover' && [...document.querySelectorAll('button')].some(b=>b.textContent.includes('Stop Simulation')&&!b.disabled)","snapshot":"verified FF selected","sdn":"ff-real-mode-switch"},
+ {"click":"Traffic Monitor","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Start Traffic Stream')&&!b.disabled)"},
+ {"eval":"(()=>{const s=document.querySelectorAll('select')[4];s.value='1000';s.dispatchEvent(new Event('change',{bubbles:true}));return s.value})()"},
+ {"click":"Start Traffic Stream","wait":2000,"snapshot":"verified FF before failure","sdn":"ff-real-before"},
+ {"click":"Failure Simulator","until":"[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Fail Primary Link')&&!b.disabled)"},
+ {"click":"Fail Primary Link","wait":2500,"snapshot":"verified FF primary failed","sdn":"ff-real-down"},
+ {"click":"NOC Overview","wait":1000,"snapshot":"verified FF recovery","sdn":"ff-real-recovery","screenshot":"ff-recovery-verified.png"},
+ {"click":"Restore All Network Links","wait":1200},
+ {"click":"Traffic Monitor"},
+ {"click":"Stop Traffic Generator","wait":1500,"snapshot":"verified FF final","sdn":"ff-real-final"}
+]
