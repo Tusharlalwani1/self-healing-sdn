@@ -68,10 +68,10 @@ class ExperimentRunner:
         })
 
         try:
-            # 1. Switch / Ensure Controller is running
-            if controller_manager.active_controller != controller_type or controller_manager.status != "READY":
-                await controller_manager.select_controller(controller_type)
-                await asyncio.sleep(1.0)
+            # Every run (including the same mode) starts with fresh Ryu memory
+            # and the shared, checked dataplane boundary used by the dashboard.
+            await controller_manager.select_controller(controller_type, force_restart=True)
+            await asyncio.sleep(1.0)
 
             # 2. Ensure Mininet simulation is running
             if mininet_client.simulation_state != "RUNNING":

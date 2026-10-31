@@ -172,6 +172,63 @@ class MininetWorker:
             "links": links
         }
 
+    @staticmethod
+    def _run_ovs(args):
+        """Checked, bounded OVS commands; only called by the privileged worker."""
+        try:
+            return subprocess.run(
+                args, capture_output=True, text=True, check=True, timeout=5
+            ).stdout
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            detail = exc.stderr or str(exc)
+            raise RuntimeError(f"{' '.join(args)} failed: {detail}") from exc
+
+    def reset_dataplane(self) -> Dict[str, Any]:
+        """Reset owned switches between Ryu processes without rebuilding Mininet.
+
+        The manager must stop the old controller before this command and must
+        not launch the new one until it succeeds. Drop old OpenFlow sessions
+        before deleting rules on the separate management socket.
+        """
+        if not self.net:
+            return {"status": "ok", "switches": [], "message": "No Mininet network"}
+
+        switches = [sw.name for sw in self.net.switches]
+        if not switches:
+            raise RuntimeError("Cannot reset dataplane: network has no switches")
+
+        for name in switches:
+            mode = self._run_ovs([
+                "ovs-vsctl", "--timeout=3", "get-fail-mode", name
+            ]).strip()
+            if mode != "secure":
+                raise RuntimeError(f"Cannot reset {name}: expected secure fail mode, got {mode!r}")
+        for name in switches:
+            # Drops old sessions without changing targets, Controller UUIDs,
+            # Mininet's cached identifiers, or reconnect settings. Port 6653
+            # is unoccupied until the manager starts the replacement Ryu.
+            self._run_ovs([
+                "ovs-appctl", "--timeout=3", "-t", "ovs-vswitchd", "bridge/reconnect", name
+            ])
+        for name in switches:
+            # Remove references before removing their group definitions.
+            for command in ("del-flows", "del-groups"):
+                self._run_ovs([
+                    "ovs-ofctl", "--timeout=3", "-O", "OpenFlow13", command, name
+                ])
+        for name in switches:
+            flows = self._run_ovs([
+                "ovs-ofctl", "--timeout=3", "-O", "OpenFlow13", "dump-flows", name
+            ])
+            groups = self._run_ovs([
+                "ovs-ofctl", "--timeout=3", "-O", "OpenFlow13", "dump-groups", name
+            ])
+            if re.search(r"\bcookie=", flows) or re.search(r"\bgroup_id=", groups):
+                raise RuntimeError(f"Dataplane reset verification failed on {name}")
+
+        logger.info("Cleaned OpenFlow flows and groups on %s", ", ".join(switches))
+        return {"status": "ok", "switches": switches}
+
     def set_link_status(self, node1: str, node2: str, status: str) -> Dict[str, Any]:
         if not self.net:
             return {"status": "error", "message": "Network is not running"}
@@ -181,21 +238,26 @@ class MininetWorker:
             return {"status": "error", "message": "Status must be 'up' or 'down'"}
 
         logger.info(f"Setting link {node1} <-> {node2} to {status}...")
+
         try:
             self.net.configLinkStatus(node1, node2, status)
-            
-            # If using OVS, also enforce port link state directly via ovs-ofctl if needed
-            # Find switch and port
+
+            # Also enforce the interface state on both switch endpoints.
             for sw_name in (node1, node2):
                 sw = self.net.get(sw_name)
+
                 if sw and isinstance(sw, OVSSwitch):
                     other = node2 if sw_name == node1 else node1
-            for port_no, intf in sw.intfs.items():
-                if intf and intf.link:
-                    other = node2 if sw_name == node1 else node1
-                    if (intf.link.intf1.node.name == other or intf.link.intf2.node.name == other):
-                        cmd = ["ip", "link", "set", str(intf.name), status]
-                        subprocess.run(cmd, check=False)
+
+                    for _, intf in sw.intfs.items():
+                        if intf and intf.link:
+                            peer1 = intf.link.intf1.node.name
+                            peer2 = intf.link.intf2.node.name
+
+                            if other in (peer1, peer2):
+                                cmd = ["ip", "link", "set", intf.name, status]
+                                subprocess.run(cmd, check=False)
+                                break
 
             return {
                 "status": "ok",
@@ -204,6 +266,7 @@ class MininetWorker:
                 "link_status": status.upper(),
                 "timestamp": time.time()
             }
+
         except Exception as e:
             logger.error(f"Failed to set link status: {e}")
             return {"status": "error", "message": str(e)}
@@ -379,6 +442,8 @@ class MininetWorker:
                     resp = self.stop_network()
                 elif cmd == "get_topology":
                     resp = self.get_topology()
+                elif cmd == "reset_dataplane":
+                    resp = self.reset_dataplane()
                 elif cmd == "set_link_status":
                     resp = self.set_link_status(req["node1"], req["node2"], req["status"])
                 elif cmd == "pingall":
