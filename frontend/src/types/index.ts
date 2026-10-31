@@ -47,7 +47,7 @@ export interface TopologyResponse {
   links: TopologyLink[];
   switches: string[];
   hosts: string[];
-  active_controller?: ControllerType;
+  active_controller?: ControllerType | null;
   simulation_state: SimulationState;
   active_paths: string[][];
   backup_paths: string[][];

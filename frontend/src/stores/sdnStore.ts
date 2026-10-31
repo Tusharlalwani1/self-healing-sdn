@@ -12,6 +12,7 @@ import {
   ExperimentRecord
 } from '../types';
 import { api } from '../services/api';
+import { emptyTopology, mergeTopology, mergeTopologySnapshot } from '../services/topology';
 
 export type NavigationTab =
   | 'overview'
@@ -86,6 +87,17 @@ interface SDNState {
   setConnected: (connected: boolean) => void;
 }
 
+// Preserve one lifecycle/controller value in the existing topology and UI fields.
+function topologyState(topology: TopologyResponse) {
+  return {
+    topology,
+    simulationState: topology.simulation_state,
+    activeController: topology.active_controller ?? null,
+  };
+}
+
+let topologyRequestId = 0;
+
 export const useSDNStore = create<SDNState>((set, get) => ({
   currentTab: 'overview',
   setTab: (tab) => set({ currentTab: tab }),
@@ -100,15 +112,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   simulationState: 'STOPPED',
   uptime: 0,
 
-  topology: {
-    nodes: [],
-    links: [],
-    switches: [],
-    hosts: [],
-    simulation_state: 'STOPPED',
-    active_paths: [],
-    backup_paths: [],
-  },
+  topology: emptyTopology(),
   selectedNode: null,
   selectedLink: null,
 
@@ -140,10 +144,15 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   fetchControllers: async () => {
+    const requestedController = get().activeController;
     try {
       const list = await api.getControllers();
       const active = list.find((c) => c.is_active)?.id || null;
-      set({ controllers: list, activeController: active });
+      set((s) => ({
+        controllers: list,
+        ...(s.activeController === requestedController
+          ? topologyState(mergeTopology(s.topology, { active_controller: active })) : {}),
+      }));
     } catch (e: any) {
       console.error('Failed to fetch controllers', e);
     }
@@ -167,11 +176,11 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await api.startSimulation(ctrl);
-      set({ simulationState: 'RUNNING' });
+      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: 'RUNNING' })));
       await get().fetchTopology();
       await get().fetchControllers();
     } catch (e: any) {
-      set({ error: e.message, simulationState: 'ERROR' });
+      set((s) => ({ error: e.message, ...topologyState(mergeTopology(s.topology, { simulation_state: 'ERROR' })) }));
       throw e;
     } finally {
       set({ loading: false });
@@ -182,7 +191,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await api.stopSimulation();
-      set({ simulationState: 'STOPPED' });
+      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: 'STOPPED' })));
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
@@ -195,7 +204,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await api.resetSimulation();
-      set({ simulationState: 'RUNNING' });
+      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: 'RUNNING' })));
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
@@ -205,13 +214,12 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   fetchTopology: async () => {
+    const requestId = ++topologyRequestId;
+    const requestedTopology = get().topology;
     try {
       const topo = await api.getTopology();
-      set({
-        topology: topo,
-        simulationState: topo.simulation_state,
-        activeController: topo.active_controller || get().activeController,
-      });
+      if (requestId !== topologyRequestId) return;
+      set((s) => topologyState(mergeTopologySnapshot(s.topology, requestedTopology, topo)));
     } catch (e: any) {
       console.error('Failed to fetch topology', e);
     }
@@ -315,41 +323,29 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     if (!event_type) return;
 
     if (event_type === 'INITIAL_STATE') {
-      if (msg.controller) set({ activeController: msg.controller });
-      if (msg.simulation_state) set({ simulationState: msg.simulation_state });
+      set((s) => topologyState(mergeTopology(s.topology, {
+        active_controller: msg.controller,
+        simulation_state: msg.simulation_state,
+        active_paths: msg.active_paths,
+      })));
     } else if (event_type === 'CONTROLLER_STATUS') {
-      set({
-        activeController: msg.controller,
-      });
+      set((s) => topologyState(mergeTopology(s.topology, { active_controller: msg.controller })));
       get().fetchControllers();
     } else if (event_type === 'SIMULATION_STATUS') {
-      set({ simulationState: msg.state });
+      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: msg.state })));
       get().fetchTopology();
     } else if (event_type === 'TOPOLOGY_UPDATE') {
       if (msg.topology) {
-        set({
-          topology: msg.topology,
-          simulationState: msg.topology.simulation_state,
-        });
+        set((s) => topologyState(mergeTopology(s.topology, msg.topology)));
       } else {
         get().fetchTopology();
       }
     } else if (event_type === 'LINK_FAILURE' || event_type === 'LINK_RESTORED') {
       get().fetchTopology();
     } else if (event_type === 'PATH_ACTIVE') {
-      set((s) => ({
-        topology: {
-          ...s.topology,
-          active_paths: [msg.path],
-        },
-      }));
+      set((s) => topologyState(mergeTopology(s.topology, { active_paths: [msg.path] })));
     } else if (event_type === 'HEALED') {
-      set((s) => ({
-        topology: {
-          ...s.topology,
-          active_paths: [msg.new_path],
-        },
-      }));
+      set((s) => topologyState(mergeTopology(s.topology, { active_paths: [msg.new_path] })));
       get().fetchEvents();
     } else if (event_type === 'TRAFFIC_TICK') {
       if (msg.stats) {

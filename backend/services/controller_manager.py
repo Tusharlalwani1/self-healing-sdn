@@ -11,6 +11,7 @@ from backend.config import RYU_APPS, CONTROLLER_IP, CONTROLLER_PORT, VENV_PYTHON
 from backend.services.log_parser import RyuLogParser
 from backend.websocket.manager import ws_manager
 from backend.database.db import save_event_log
+from backend.services.mininet_client import mininet_client
 
 logger = logging.getLogger("sdn.controller")
 
@@ -25,6 +26,7 @@ class ControllerManager:
         self.routes_summary: Dict[str, Any] = {}
         self.last_recovery_event: Optional[Dict[str, Any]] = None
         self.started_at: Optional[float] = None
+        self._lifecycle_lock = asyncio.Lock()
 
     def is_port_in_use(self, port: int = CONTROLLER_PORT) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -58,42 +60,64 @@ class ControllerManager:
             }
         ]
 
-    async def select_controller(self, controller_type: str) -> Dict[str, Any]:
+    async def select_controller(self, controller_type: str, force_restart: bool = False) -> Dict[str, Any]:
         if controller_type not in RYU_APPS:
             raise ValueError(f"Unknown controller type: {controller_type}. Must be one of: {list(RYU_APPS.keys())}")
 
-        if self.active_controller == controller_type and self.status == "READY":
-            if self.process and self.process.returncode is None and self.is_port_in_use(CONTROLLER_PORT):
-                return {"status": "ok", "message": f"{controller_type} already active and ready"}
+        async with self._lifecycle_lock:
+            if not force_restart and self.active_controller == controller_type and self.status == "READY":
+                if self.process and self.process.returncode is None and self.is_port_in_use(CONTROLLER_PORT):
+                    return {"status": "ok", "message": f"{controller_type} already active and ready"}
 
-        # Stop existing controller if running
-        if self.process:
-            await self.stop_controller()
+            try:
+                if self.process:
+                    await self._stop_controller()
 
-        self.active_controller = controller_type
-        self.status = "STARTING"
-        self.active_paths = []
-        self.routes_summary = {}
-        self.last_recovery_event = None
+                self.active_controller = controller_type
+                self.status = "STARTING"
+                self.active_paths = []
+                self.routes_summary = {}
+                self.last_recovery_event = None
+                await ws_manager.broadcast({
+                    "event_type": "CONTROLLER_STATUS",
+                    "controller": controller_type,
+                    "status": "STARTING",
+                    "timestamp": time.time()
+                })
 
-        await ws_manager.broadcast({
-            "event_type": "CONTROLLER_STATUS",
-            "controller": controller_type,
-            "status": "STARTING",
-            "timestamp": time.time()
-        })
+                # Orphans must be gone BEFORE reset, not just before launch.
+                self._kill_process_on_port(CONTROLLER_PORT)
+                await asyncio.sleep(0.5)
+                if self.is_port_in_use(CONTROLLER_PORT):
+                    raise RuntimeError("Cannot switch controllers: OpenFlow port 6653 is still in use")
 
-        return await self.start_controller(controller_type)
+                reset = await mininet_client.reset_dataplane()
+                message = (
+                    f"Dataplane reset confirmed on {reset.get('switches', [])} "
+                    f"before starting {controller_type}"
+                )
+                logger.info(message)
+                save_event_log("INFO", "CONTROLLER", message)
+                return await self.start_controller(controller_type)
+            except Exception as exc:
+                self.status = "FAILED"
+                message = f"Controller switch to {controller_type} failed: {exc}"
+                logger.error(message)
+                save_event_log("ERROR", "CONTROLLER", message)
+                await ws_manager.broadcast({
+                    "event_type": "CONTROLLER_STATUS",
+                    "controller": self.active_controller,
+                    "status": "FAILED",
+                    "error": str(exc),
+                    "timestamp": time.time()
+                })
+                raise
 
     async def start_controller(self, controller_type: str) -> Dict[str, Any]:
         app_path = RYU_APPS.get(controller_type)
         if not app_path or not app_path.exists():
             self.status = "FAILED"
             raise FileNotFoundError(f"Controller script not found at {app_path}")
-
-        # Kill any orphan process listening on port 6653
-        self._kill_process_on_port(CONTROLLER_PORT)
-        await asyncio.sleep(0.5)
 
         # Locate ryu-manager executable in sdn-env
         ryu_bin = VENV_PYTHON.parent / "ryu-manager"
@@ -155,6 +179,10 @@ class ControllerManager:
             raise
 
     async def stop_controller(self):
+        async with self._lifecycle_lock:
+            await self._stop_controller()
+
+    async def _stop_controller(self):
         if not self.process:
             self.status = "STOPPED"
             return
@@ -163,18 +191,24 @@ class ControllerManager:
         save_event_log("INFO", "CONTROLLER", f"Stopping controller {self.active_controller}")
         
         try:
-            os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-            try:
-                await asyncio.wait_for(self.process.wait(), timeout=3.0)
-            except asyncio.TimeoutError:
-                os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+            if self.process.returncode is None:
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                try:
+                    await asyncio.wait_for(self.process.wait(), timeout=3.0)
+                except asyncio.TimeoutError:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                    await asyncio.wait_for(self.process.wait(), timeout=3.0)
         except ProcessLookupError:
-            pass
+            await asyncio.wait_for(self.process.wait(), timeout=3.0)
         except Exception as e:
-            logger.warning(f"Error terminating controller: {e}")
+            raise RuntimeError(f"Cannot switch safely: error terminating controller: {e}") from e
 
         if self.log_task:
             self.log_task.cancel()
+            try:
+                await self.log_task
+            except asyncio.CancelledError:
+                pass
             self.log_task = None
 
         self.process = None
