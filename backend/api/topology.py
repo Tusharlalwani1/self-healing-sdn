@@ -1,8 +1,9 @@
+from backend.api.runtime_route import RuntimeRoute
 from fastapi import APIRouter, HTTPException
 from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
 
-router = APIRouter(prefix="/api/topology", tags=["Topology"])
+router = APIRouter(prefix="/api/topology", tags=["Topology"], route_class=RuntimeRoute)
 
 @router.get("")
 async def get_topology():
@@ -20,7 +21,4 @@ async def get_topology():
 
 @router.get("/switch/{dpid}")
 async def get_switch_details(dpid: int):
-    try:
-        return await mininet_client.get_switch_info(dpid)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await mininet_client.get_switch_info(dpid)

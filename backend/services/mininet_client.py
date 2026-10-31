@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 from backend.config import MININET_SOCKET_PATH, BACKEND_DIR
 from backend.websocket.manager import ws_manager
 from backend.database.db import save_event_log
+from backend.services.operation_error import OperationError, public_error, validate_worker_result
 
 
 logger = logging.getLogger("sdn.mininet_client")
@@ -91,15 +92,17 @@ class MininetClient:
                         pass
 
             if not ready:
-                raise RuntimeError(
-                    "Mininet worker socket was not ready within 15 seconds"
+                raise OperationError(503,
+                    "Mininet worker was not ready within 15 seconds"
                 )
 
             logger.info("Mininet worker spawned and ready.")
 
         except Exception as e:
             logger.error(f"Failed to spawn mininet worker: {e}")
-            raise
+            if isinstance(e, OperationError):
+                raise
+            raise OperationError(503, "Unable to start Mininet worker; check backend logs") from e
 
     async def _send_command(
         self,
@@ -108,32 +111,32 @@ class MininetClient:
     ) -> Dict[str, Any]:
 
         async with self._lock:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_unix_connection(self.socket_path),
-                timeout=timeout
-            )
-
+            writer = None
             try:
-                line = json.dumps(payload) + "\n"
-
-                writer.write(line.encode("utf-8"))
-                await writer.drain()
-
-                resp_line = await asyncio.wait_for(
-                    reader.readline(),
-                    timeout=timeout
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_unix_connection(self.socket_path), timeout=timeout
                 )
-
+                writer.write((json.dumps(payload) + "\n").encode("utf-8"))
+                await asyncio.wait_for(writer.drain(), timeout=timeout)
+                resp_line = await asyncio.wait_for(reader.readline(), timeout=timeout)
                 if not resp_line:
-                    raise RuntimeError(
-                        "Received empty response from Mininet worker"
-                    )
-
-                return json.loads(resp_line.decode("utf-8"))
-
+                    raise OperationError(502, "Empty response from Mininet worker")
+                return validate_worker_result(json.loads(resp_line), payload.get("command"))
+            except OperationError:
+                raise
+            except asyncio.TimeoutError as exc:
+                raise OperationError(504, "Mininet worker request timed out; operation outcome is unconfirmed") from exc
+            except (FileNotFoundError, ConnectionRefusedError) as exc:
+                raise OperationError(503, "Mininet worker unavailable") from exc
+            except (OSError, ValueError, UnicodeError) as exc:
+                raise OperationError(502, "Mininet worker communication failed") from exc
             finally:
-                writer.close()
-                await writer.wait_closed()
+                if writer is not None:
+                    writer.close()
+                    try:
+                        await writer.wait_closed()
+                    except OSError:
+                        pass
 
     async def start_simulation(
         self,
@@ -184,6 +187,7 @@ class MininetClient:
 
             else:
                 self.simulation_state = "ERROR"
+                raise OperationError(502, "Mininet network start was not confirmed")
 
             return res
 
@@ -201,13 +205,15 @@ class MininetClient:
             await ws_manager.broadcast({
                 "event_type": "SIMULATION_STATUS",
                 "state": "ERROR",
-                "error": str(e),
+                "error": public_error(e),
                 "timestamp": time.time()
             })
 
             raise
 
     async def stop_simulation(self) -> Dict[str, Any]:
+        if self.simulation_state == "STOPPED" and not os.path.exists(self.socket_path):
+            return {"status": "ok", "message": "Simulation already stopped"}
         self.simulation_state = "STOPPING"
 
         await ws_manager.broadcast({
@@ -239,56 +245,42 @@ class MininetClient:
             return res
 
         except Exception as e:
-            self.simulation_state = "STOPPED"
-
-            logger.warning(f"Error stopping Mininet: {e}")
-
-            return {
-                "status": "ok",
-                "message": "Simulation stopped"
-            }
+            self.simulation_state = "ERROR"
+            logger.warning("Error stopping Mininet: %s", e)
+            await ws_manager.broadcast({
+                "event_type": "SIMULATION_STATUS", "state": "ERROR",
+                "error": public_error(e), "timestamp": time.time()
+            })
+            raise
 
     async def get_topology(self) -> Dict[str, Any]:
-        try:
-            if not os.path.exists(self.socket_path):
-                return {
-                    "status": "not_running",
-                    "nodes": [],
-                    "links": []
-                }
-
-            return await self._send_command(
-                {"command": "get_topology"},
-                timeout=5.0
-            )
-
-        except Exception as e:
-            logger.debug(f"Topology query failed: {e}")
-
-            return {
-                "status": "not_running",
-                "nodes": [],
-                "links": []
-            }
+        if not os.path.exists(self.socket_path) and self.simulation_state == "STOPPED":
+            return {"status": "not_running", "nodes": [], "links": []}
+        result = await self._send_command({"command": "get_topology"}, timeout=5.0)
+        if result.get("status") == "not_running" and self.simulation_state == "RUNNING":
+            raise OperationError(409, "Mininet network is not running; runtime state is inconsistent")
+        return result
 
     async def reset_dataplane(self) -> Dict[str, Any]:
         """Require a confirmed worker reset before a replacement Ryu starts."""
         if not os.path.exists(self.socket_path):
             if self.simulation_state == "STOPPED":
                 return {"status": "ok", "switches": [], "message": "No active simulation"}
-            raise RuntimeError("Cannot reset dataplane: Mininet worker socket is unavailable")
+            raise OperationError(503, "Cannot reset dataplane: Mininet worker unavailable")
 
         try:
             res = await self._send_command({"command": "reset_dataplane"}, timeout=90.0)
+        except OperationError:
+            raise
         except Exception as exc:
             raise RuntimeError(f"Dataplane reset request failed ({type(exc).__name__}): {exc}") from exc
         if not isinstance(res, dict) or res.get("status") != "ok":
             detail = res.get("message", res) if isinstance(res, dict) else res
             raise RuntimeError(f"Dataplane reset failed: {detail}")
         if not isinstance(res.get("switches"), list):
-            raise RuntimeError("Dataplane reset failed: invalid worker confirmation")
+            raise OperationError(502, "Dataplane reset failed: invalid worker confirmation")
         if self.simulation_state != "STOPPED" and not res.get("switches"):
-            raise RuntimeError("Dataplane reset failed: worker has no active switches")
+            raise OperationError(502, "Dataplane reset failed: worker has no active switches")
         return res
 
     async def set_link_status(
@@ -297,6 +289,9 @@ class MininetClient:
         node2: str,
         status: str
     ) -> Dict[str, Any]:
+
+        if self.simulation_state == "STOPPED":
+            raise OperationError(409, "Network is not running")
 
         res = await self._send_command({
             "command": "set_link_status",
@@ -337,6 +332,9 @@ class MininetClient:
         return res
 
     async def pingall(self) -> Dict[str, Any]:
+        if self.simulation_state == "STOPPED":
+            raise OperationError(409, "Network is not running")
+
         return await self._send_command(
             {"command": "pingall"},
             timeout=15.0
@@ -350,6 +348,9 @@ class MininetClient:
         count: int,
         job_id: str
     ) -> Dict[str, Any]:
+
+        if self.simulation_state == "STOPPED":
+            raise OperationError(409, "Network is not running")
 
         res = await self._send_command({
             "command": "start_traffic",
@@ -401,6 +402,9 @@ class MininetClient:
         self,
         dpid: int
     ) -> Dict[str, Any]:
+
+        if self.simulation_state == "STOPPED":
+            raise OperationError(409, "Network is not running")
 
         return await self._send_command({
             "command": "get_switch_info",

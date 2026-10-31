@@ -18,15 +18,19 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   });
-  if (!res.ok) {
-    let errMsg = `HTTP Error ${res.status}: ${res.statusText}`;
-    try {
-      const err = await res.json();
-      if (err.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
-    } catch (_) {}
-    throw new Error(errMsg);
+  const data = await res.json().catch(() => null);
+  // Also reject legacy operation-error envelopes during a backend rollout.
+  if (!res.ok || data?.status === 'error' || data?.status === 'FAILED' || data?.success === false) {
+    const detail = data?.detail;
+    const message = typeof detail === 'string' ? detail
+      : typeof detail?.message === 'string' ? detail.message
+      : typeof data?.message === 'string' ? data.message
+      : Array.isArray(detail) ? detail.map((item) => item.msg).filter(Boolean).join('; ')
+      : `HTTP Error ${res.status}: ${res.statusText}`;
+    throw new Error(message);
   }
-  return res.json();
+  if (data === null) throw new Error('Invalid JSON response from backend');
+  return data;
 }
 
 export const api = {

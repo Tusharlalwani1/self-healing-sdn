@@ -48,21 +48,21 @@ export const FailureSimulatorView: React.FC = () => {
 
         <div className="flex items-center space-x-2.5">
           <button
-            onClick={() => handleSimulateScenario('primary')}
+            onClick={() => handleSimulateScenario('primary').catch(console.error)}
             disabled={simulationState !== 'RUNNING'}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition disabled:opacity-50"
           >
             Fail Primary Link (s1 ↔ s2)
           </button>
           <button
-            onClick={() => handleSimulateScenario('backup')}
+            onClick={() => handleSimulateScenario('backup').catch(console.error)}
             disabled={simulationState !== 'RUNNING'}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition disabled:opacity-50"
           >
             Fail Backup Link (s1 ↔ s3)
           </button>
           <button
-            onClick={() => handleSimulateScenario('restore')}
+            onClick={() => handleSimulateScenario('restore').catch(console.error)}
             disabled={simulationState !== 'RUNNING'}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition disabled:opacity-50 flex items-center gap-1.5"
           >
@@ -110,7 +110,7 @@ export const FailureSimulatorView: React.FC = () => {
               <div className="pt-4 mt-3 border-t border-slate-800/80">
                 {isUp ? (
                   <button
-                    onClick={() => setLinkStatus(item.src, item.dst, 'down')}
+                    onClick={() => setLinkStatus(item.src, item.dst, 'down').catch(console.error)}
                     disabled={simulationState !== 'RUNNING'}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
@@ -119,7 +119,7 @@ export const FailureSimulatorView: React.FC = () => {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setLinkStatus(item.src, item.dst, 'up')}
+                    onClick={() => setLinkStatus(item.src, item.dst, 'up').catch(console.error)}
                     disabled={simulationState !== 'RUNNING'}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >

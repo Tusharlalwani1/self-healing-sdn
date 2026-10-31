@@ -228,7 +228,7 @@ export const OverviewView: React.FC = () => {
               {/* Traffic toggle */}
               {trafficStats.active ? (
                 <button
-                  onClick={() => stopTraffic()}
+                  onClick={() => stopTraffic().catch(console.error)}
                   className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
@@ -236,7 +236,7 @@ export const OverviewView: React.FC = () => {
                 </button>
               ) : (
                 <button
-                  onClick={() => startTraffic({ src: 'h1', dst: 'h2', interval: 0.05, count: 200 })}
+                  onClick={() => startTraffic({ src: 'h1', dst: 'h2', interval: 0.05, count: 200 }).catch(console.error)}
                   disabled={simulationState !== 'RUNNING'}
                   className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 transition disabled:opacity-50"
                 >
@@ -247,7 +247,7 @@ export const OverviewView: React.FC = () => {
 
               {/* Inject Link Failure toggle */}
               <button
-                onClick={handleQuickFailure}
+                onClick={() => handleQuickFailure().catch(console.error)}
                 disabled={simulationState !== 'RUNNING'}
                 className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 transition disabled:opacity-50"
               >
@@ -257,7 +257,7 @@ export const OverviewView: React.FC = () => {
 
               {/* Restore all */}
               <button
-                onClick={() => restoreAllLinks()}
+                onClick={() => restoreAllLinks().catch(console.error)}
                 disabled={simulationState !== 'RUNNING'}
                 className="w-full flex items-center justify-center space-x-2 py-2 px-4 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition disabled:opacity-50"
               >

@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Literal
 from pydantic import BaseModel, Field
 
 class ControllerInfo(BaseModel):
@@ -10,10 +10,10 @@ class ControllerInfo(BaseModel):
     is_active: bool = False
 
 class ControllerSelectRequest(BaseModel):
-    controller_type: str = Field(..., description="baseline, reactive, or fast_failover")
+    controller_type: Literal["baseline", "reactive", "fast_failover"]
 
 class SimulationStartRequest(BaseModel):
-    controller_type: Optional[str] = None
+    controller_type: Optional[Literal["baseline", "reactive", "fast_failover"]] = None
 
 class NodeInfo(BaseModel):
     id: str
@@ -48,14 +48,14 @@ class TopologyResponse(BaseModel):
     backup_paths: List[List[str]] = []
 
 class LinkActionRequest(BaseModel):
-    node1: str
-    node2: str
+    node1: str = Field(..., pattern=r"^[A-Za-z0-9_-]{1,32}$")
+    node2: str = Field(..., pattern=r"^[A-Za-z0-9_-]{1,32}$")
 
 class TrafficStartRequest(BaseModel):
-    src: str = "h1"
-    dst: str = "h2"
-    interval: float = 0.05
-    count: int = 200
+    src: str = Field("h1", pattern=r"^[A-Za-z0-9_-]{1,32}$")
+    dst: str = Field("h2", pattern=r"^[A-Za-z0-9_-]{1,32}$")
+    interval: float = Field(0.05, gt=0, allow_inf_nan=False)
+    count: int = Field(200, gt=0)
     job_id: Optional[str] = None
 
 class TrafficStats(BaseModel):
@@ -72,13 +72,13 @@ class TrafficStats(BaseModel):
     history: List[Dict[str, Any]] = []
 
 class ExperimentRunRequest(BaseModel):
-    controller: str = "reactive"  # 'baseline' | 'reactive' | 'fast_failover' | 'comparison'
-    traffic_interval: float = 0.02
-    packet_count: int = 300
-    failure_delay_sec: float = 2.0
+    controller: Literal["baseline", "reactive", "fast_failover", "comparison"] = "reactive"
+    traffic_interval: float = Field(0.02, gt=0, allow_inf_nan=False)
+    packet_count: int = Field(300, gt=0)
+    failure_delay_sec: float = Field(2.0, ge=0, allow_inf_nan=False)
     fail_link_src: str = "s1"
     fail_link_dst: str = "s2"
-    repetitions: int = 1
+    repetitions: int = Field(1, ge=1)
 
 class ExperimentRecord(BaseModel):
     id: str

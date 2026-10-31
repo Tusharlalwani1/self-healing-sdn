@@ -18,6 +18,12 @@ import threading
 import time
 from typing import Dict, Any, Optional
 
+# Direct script execution uses system Python; package imports support tests.
+if __package__:
+    from .operation_error import OperationError, public_error, safe_message
+else:
+    from operation_error import OperationError, public_error, safe_message
+
 # Mininet imports
 try:
     from mininet.net import Mininet
@@ -46,7 +52,7 @@ class MininetWorker:
     def _clean_simulation_resources():
         """Clean only simulation bridges and links without killing ryu-manager or other processes."""
         for sw in ['s1', 's2', 's3', 's4']:
-            subprocess.run(["ovs-vsctl", "--if-exists", "del-br", sw], capture_output=True, check=False)
+            subprocess.run(["ovs-vsctl", "--if-exists", "del-br", sw], capture_output=True, check=True, timeout=5)
 
     def build_network(self, controller_ip="127.0.0.1", controller_port=6653):
         if Mininet is None:
@@ -93,7 +99,8 @@ class MininetWorker:
             try:
                 self.net.stop()
             except Exception as e:
-                logger.warning(f"Error during net.stop(): {e}")
+                logger.exception("Mininet stop failed")
+                raise OperationError(502, "Mininet network stop failed; check worker logs") from e
             self.net = None
 
         self._clean_simulation_resources()
@@ -180,8 +187,9 @@ class MininetWorker:
                 args, capture_output=True, text=True, check=True, timeout=5
             ).stdout
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-            detail = exc.stderr or str(exc)
-            raise RuntimeError(f"{' '.join(args)} failed: {detail}") from exc
+            logger.exception("OVS command failed: %s", args)
+            detail = safe_message(exc.stderr, "check worker logs")
+            raise OperationError(502, f"Open vSwitch command failed during dataplane reset: {detail}") from exc
 
     def reset_dataplane(self) -> Dict[str, Any]:
         """Reset owned switches between Ryu processes without rebuilding Mininet.
@@ -195,14 +203,14 @@ class MininetWorker:
 
         switches = [sw.name for sw in self.net.switches]
         if not switches:
-            raise RuntimeError("Cannot reset dataplane: network has no switches")
+            raise OperationError(502, "Cannot reset dataplane: network has no switches")
 
         for name in switches:
             mode = self._run_ovs([
                 "ovs-vsctl", "--timeout=3", "get-fail-mode", name
             ]).strip()
             if mode != "secure":
-                raise RuntimeError(f"Cannot reset {name}: expected secure fail mode, got {mode!r}")
+                raise OperationError(502, f"Cannot reset {name}: expected secure fail mode")
         for name in switches:
             # Drops old sessions without changing targets, Controller UUIDs,
             # Mininet's cached identifiers, or reconnect settings. Port 6653
@@ -224,68 +232,53 @@ class MininetWorker:
                 "ovs-ofctl", "--timeout=3", "-O", "OpenFlow13", "dump-groups", name
             ])
             if re.search(r"\bcookie=", flows) or re.search(r"\bgroup_id=", groups):
-                raise RuntimeError(f"Dataplane reset verification failed on {name}")
+                raise OperationError(502, f"Dataplane reset verification failed on {name}")
 
         logger.info("Cleaned OpenFlow flows and groups on %s", ", ".join(switches))
         return {"status": "ok", "switches": switches}
 
     def set_link_status(self, node1: str, node2: str, status: str) -> Dict[str, Any]:
         if not self.net:
-            return {"status": "error", "message": "Network is not running"}
-
-        status = status.lower()
+            raise OperationError(409, "Network is not running")
         if status not in ("up", "down"):
-            return {"status": "error", "message": "Status must be 'up' or 'down'"}
-
-        logger.info(f"Setting link {node1} <-> {node2} to {status}...")
-
+            raise OperationError(400, "Status must be up or down")
+        links = [link for link in self.net.links
+                 if {link.intf1.node.name, link.intf2.node.name} == {node1, node2}]
+        if not links:
+            raise OperationError(404, "Requested network link does not exist")
         try:
             self.net.configLinkStatus(node1, node2, status)
-
-            # Also enforce the interface state on both switch endpoints.
-            for sw_name in (node1, node2):
-                sw = self.net.get(sw_name)
-
-                if sw and isinstance(sw, OVSSwitch):
-                    other = node2 if sw_name == node1 else node1
-
-                    for _, intf in sw.intfs.items():
-                        if intf and intf.link:
-                            peer1 = intf.link.intf1.node.name
-                            peer2 = intf.link.intf2.node.name
-
-                            if other in (peer1, peer2):
-                                cmd = ["ip", "link", "set", intf.name, status]
-                                subprocess.run(cmd, check=False)
-                                break
-
-            return {
-                "status": "ok",
-                "node1": node1,
-                "node2": node2,
-                "link_status": status.upper(),
-                "timestamp": time.time()
-            }
-
-        except Exception as e:
-            logger.error(f"Failed to set link status: {e}")
-            return {"status": "error", "message": str(e)}
+            for link in links:
+                for intf in (link.intf1, link.intf2):
+                    if isinstance(intf.node, OVSSwitch):
+                        subprocess.run(["ip", "link", "set", intf.name, status],
+                                       capture_output=True, check=True, timeout=5)
+                    if bool(intf.isUp()) != (status == "up"):
+                        raise RuntimeError("Interface state does not match requested state")
+        except Exception as exc:
+            logger.exception("Failed to set link %s to %s", (node1, node2), status)
+            raise OperationError(502, "Link state change failed; both endpoints could not be confirmed") from exc
+        return {"status": "ok", "node1": node1, "node2": node2,
+                "link_status": status.upper(), "timestamp": time.time()}
 
     def pingall(self) -> Dict[str, Any]:
         if not self.net:
-            return {"status": "error", "message": "Network is not running"}
+            raise OperationError(409, "Network is not running")
         
         loss = self.net.pingAll()
         return {"status": "ok", "loss_percent": loss}
 
     def start_traffic(self, src: str, dst: str, interval: float, count: int, job_id: str) -> Dict[str, Any]:
         if not self.net:
-            return {"status": "error", "message": "Network is not running"}
+            raise OperationError(409, "Network is not running")
 
-        src_node = self.net.get(src)
-        dst_node = self.net.get(dst)
+        if interval <= 0 or count <= 0:
+            raise OperationError(400, "Traffic interval and packet count must be positive")
+        hosts = {host.name: host for host in self.net.hosts}
+        src_node = hosts.get(src)
+        dst_node = hosts.get(dst)
         if not src_node or not dst_node:
-            return {"status": "error", "message": f"Nodes {src} or {dst} not found"}
+            raise OperationError(404, "Source or destination host not found")
 
         dst_ip = dst_node.IP()
         with self.traffic_lock:
@@ -299,6 +292,10 @@ class MininetWorker:
             cmd = ["stdbuf", "-oL", "-eL", "ping", "-i", str(interval), "-c", str(count), dst_ip]
             logger.info(f"Starting traffic job {job_id}: {' '.join(cmd)} on {src}")
             proc = src_node.popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+            # Report process launch errors before claiming an active job.
+            if proc.poll() is not None and proc.returncode not in (0, 1):
+                raise OperationError(502, "Traffic process failed to start; check worker logs")
 
             job_data = {
                 "job_id": job_id,
@@ -390,6 +387,7 @@ class MininetWorker:
                 proc.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                proc.wait(timeout=1.0)
         job["active"] = False
         return {"status": "ok", "job_id": job_id, "active": False}
 
@@ -402,18 +400,22 @@ class MininetWorker:
             return res
 
     def get_switch_info(self, dpid: int) -> Dict[str, Any]:
+        if not self.net:
+            raise OperationError(409, "Network is not running")
         sw_name = f"s{dpid}"
+        if sw_name not in {sw.name for sw in self.net.switches}:
+            raise OperationError(404, "Requested switch does not exist")
         flows_out = subprocess.run(
             ["ovs-ofctl", "-O", "OpenFlow13", "dump-flows", sw_name],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=True, timeout=5
         ).stdout
         groups_out = subprocess.run(
             ["ovs-ofctl", "-O", "OpenFlow13", "dump-groups", sw_name],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=True, timeout=5
         ).stdout
         ports_out = subprocess.run(
             ["ovs-ofctl", "-O", "OpenFlow13", "dump-ports", sw_name],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=True, timeout=5
         ).stdout
 
         return {
@@ -431,6 +433,8 @@ class MininetWorker:
                 break
             try:
                 req = json.loads(line.decode("utf-8"))
+                if not isinstance(req, dict):
+                    raise OperationError(400, "Worker request must be a JSON object")
                 cmd = req.get("command")
                 resp = {}
                 if cmd == "start":
@@ -462,13 +466,19 @@ class MininetWorker:
                 elif cmd == "ping":
                     resp = {"status": "pong", "time": time.time()}
                 else:
-                    resp = {"status": "error", "message": f"Unknown command: {cmd}"}
+                    raise OperationError(400, "Unknown worker command")
 
                 writer.write(json.dumps(resp).encode("utf-8") + b"\n")
                 await writer.drain()
             except Exception as e:
                 logger.error(f"Error handling request: {e}")
-                err_resp = {"status": "error", "message": str(e)}
+                code = "runtime_failure"
+                if isinstance(e, OperationError):
+                    code = {400: "invalid_request", 404: "not_found", 409: "not_running"}.get(e.status_code, code)
+                elif isinstance(e, (KeyError, TypeError, ValueError, UnicodeError)):
+                    e = OperationError(400, "Invalid worker request")
+                    code = "invalid_request"
+                err_resp = {"status": "error", "error_code": code, "message": public_error(e)}
                 writer.write(json.dumps(err_resp).encode("utf-8") + b"\n")
                 await writer.drain()
 

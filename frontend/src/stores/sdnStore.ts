@@ -166,6 +166,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
+      await get().fetchControllers();
       throw e;
     } finally {
       set({ loading: false });
@@ -195,6 +196,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
+      throw e;
     } finally {
       set({ loading: false });
     }
@@ -208,6 +210,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
+      throw e;
     } finally {
       set({ loading: false });
     }
@@ -229,6 +232,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   selectLink: (link) => set({ selectedLink: link }),
 
   setLinkStatus: async (node1, node2, status) => {
+    set({ error: null });
     try {
       if (status === 'down') {
         await api.setLinkDown(node1, node2);
@@ -243,15 +247,19 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   restoreAllLinks: async () => {
+    set({ error: null });
     try {
       await api.restoreAllLinks();
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
+      await get().fetchTopology();
+      throw e;
     }
   },
 
   startTraffic: async (params) => {
+    set({ error: null });
     try {
       await api.startTraffic(params || {});
       set((s) => ({ trafficStats: { ...s.trafficStats, active: true } }));
@@ -267,6 +275,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       set((s) => ({ trafficStats: { ...s.trafficStats, active: false } }));
     } catch (e: any) {
       set({ error: e.message });
+      throw e;
     }
   },
 
@@ -314,7 +323,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     try {
       await api.cancelExperiment();
     } catch (e: any) {
-      console.error('Failed to cancel experiment', e);
+      set({ error: e.message });
+      throw e;
     }
   },
 
@@ -329,6 +339,12 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         active_paths: msg.active_paths,
       })));
     } else if (event_type === 'CONTROLLER_STATUS') {
+      set((s) => ({
+        controllers: s.controllers.map((controller) => ({ ...controller,
+          status: controller.id === msg.controller ? msg.status : 'STOPPED',
+        })),
+        ...(msg.status === 'FAILED' ? { error: msg.error || 'Controller switch failed' } : {}),
+      }));
       set((s) => topologyState(mergeTopology(s.topology, { active_controller: msg.controller })));
       get().fetchControllers();
     } else if (event_type === 'SIMULATION_STATUS') {
@@ -365,6 +381,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         experimentRunning: false,
         experimentProgress: null,
       });
+      if (msg.error) set({ error: msg.error });
       get().fetchExperiments();
       get().fetchTopology();
     } else if (event_type === 'LOG_LINE') {

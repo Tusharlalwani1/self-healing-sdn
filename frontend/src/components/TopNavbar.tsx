@@ -31,7 +31,7 @@ export const TopNavbar: React.FC = () => {
   const handleControllerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value as ControllerType;
     if (val) {
-      await selectController(val);
+      await selectController(val).catch(console.error);
     }
   };
 
@@ -108,7 +108,7 @@ export const TopNavbar: React.FC = () => {
         {/* Restore All Links */}
         {simulationState === 'RUNNING' && (
           <button
-            onClick={() => restoreAllLinks()}
+            onClick={() => restoreAllLinks().catch(console.error)}
             title="Restore all physical links to UP"
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition"
           >
@@ -120,7 +120,7 @@ export const TopNavbar: React.FC = () => {
         {/* Start / Stop Simulation */}
         {simulationState !== 'RUNNING' ? (
           <button
-            onClick={() => startSimulation()}
+            onClick={() => startSimulation().catch(console.error)}
             disabled={loading || experimentRunning}
             className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 transition disabled:opacity-50"
           >
@@ -129,7 +129,7 @@ export const TopNavbar: React.FC = () => {
           </button>
         ) : (
           <button
-            onClick={() => stopSimulation()}
+            onClick={() => stopSimulation().catch(console.error)}
             disabled={loading || experimentRunning}
             className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition disabled:opacity-50"
           >
