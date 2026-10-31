@@ -37,7 +37,7 @@ export const ControllersView: React.FC = () => {
       {/* 3 Controller Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {controllers.map((ctrl) => {
-          const isActive = ctrl.id === activeController;
+          const isActive = ctrl.id === activeController && ctrl.status === 'READY';
           return (
             <div
               key={ctrl.id}
@@ -61,7 +61,7 @@ export const ControllersView: React.FC = () => {
                       ACTIVE RUNNING
                     </span>
                   ) : (
-                    <span className="text-[11px] font-mono text-slate-500">STANDBY</span>
+                    <span className="text-[11px] font-mono text-slate-500">{ctrl.status === 'STOPPED' ? 'STANDBY' : ctrl.status}</span>
                   )}
                 </div>
 

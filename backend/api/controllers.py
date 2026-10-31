@@ -1,8 +1,9 @@
+from backend.api.runtime_route import RuntimeRoute
 from fastapi import APIRouter, HTTPException
 from backend.models.schemas import ControllerSelectRequest
 from backend.services.controller_manager import controller_manager
 
-router = APIRouter(prefix="/api/controllers", tags=["Controllers"])
+router = APIRouter(prefix="/api/controllers", tags=["Controllers"], route_class=RuntimeRoute)
 
 @router.get("")
 async def list_controllers():
@@ -10,10 +11,7 @@ async def list_controllers():
 
 @router.post("/select")
 async def select_controller(req: ControllerSelectRequest):
-    try:
-        return await controller_manager.select_controller(req.controller_type)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await controller_manager.select_controller(req.controller_type)
 
 @router.post("/stop")
 async def stop_controller():

@@ -12,6 +12,7 @@ from backend.services.log_parser import RyuLogParser
 from backend.websocket.manager import ws_manager
 from backend.database.db import save_event_log
 from backend.services.mininet_client import mininet_client
+from backend.services.operation_error import OperationError, public_error
 
 logger = logging.getLogger("sdn.controller")
 
@@ -62,7 +63,7 @@ class ControllerManager:
 
     async def select_controller(self, controller_type: str, force_restart: bool = False) -> Dict[str, Any]:
         if controller_type not in RYU_APPS:
-            raise ValueError(f"Unknown controller type: {controller_type}. Must be one of: {list(RYU_APPS.keys())}")
+            raise OperationError(422, "Unknown controller type; choose baseline, reactive, or fast_failover")
 
         async with self._lifecycle_lock:
             if not force_restart and self.active_controller == controller_type and self.status == "READY":
@@ -89,7 +90,7 @@ class ControllerManager:
                 self._kill_process_on_port(CONTROLLER_PORT)
                 await asyncio.sleep(0.5)
                 if self.is_port_in_use(CONTROLLER_PORT):
-                    raise RuntimeError("Cannot switch controllers: OpenFlow port 6653 is still in use")
+                    raise OperationError(502, "Cannot switch controllers: OpenFlow port 6653 is still in use")
 
                 reset = await mininet_client.reset_dataplane()
                 message = (
@@ -108,7 +109,7 @@ class ControllerManager:
                     "event_type": "CONTROLLER_STATUS",
                     "controller": self.active_controller,
                     "status": "FAILED",
-                    "error": str(exc),
+                    "error": public_error(exc),
                     "timestamp": time.time()
                 })
                 raise
@@ -117,7 +118,7 @@ class ControllerManager:
         app_path = RYU_APPS.get(controller_type)
         if not app_path or not app_path.exists():
             self.status = "FAILED"
-            raise FileNotFoundError(f"Controller script not found at {app_path}")
+            raise OperationError(500, "Selected controller script is unavailable; check backend configuration")
 
         # Locate ryu-manager executable in sdn-env
         ryu_bin = VENV_PYTHON.parent / "ryu-manager"
@@ -153,7 +154,10 @@ class ControllerManager:
 
             if self.process.returncode is not None:
                 self.status = "FAILED"
-                raise RuntimeError(f"Ryu controller exited immediately with code {self.process.returncode}")
+                raise OperationError(502, f"Ryu controller exited immediately with code {self.process.returncode}")
+
+            if not port_ready:
+                raise OperationError(502, "Ryu did not open OpenFlow port 6653 within 10 seconds")
 
             self.status = "READY"
             save_event_log("SUCCESS", "CONTROLLER", f"Ryu {controller_type} controller is READY on port {CONTROLLER_PORT} (listening={port_ready})")
@@ -173,7 +177,7 @@ class ControllerManager:
                 "event_type": "CONTROLLER_STATUS",
                 "controller": controller_type,
                 "status": "FAILED",
-                "error": str(e),
+                "error": public_error(e),
                 "timestamp": time.time()
             })
             raise
@@ -201,7 +205,8 @@ class ControllerManager:
         except ProcessLookupError:
             await asyncio.wait_for(self.process.wait(), timeout=3.0)
         except Exception as e:
-            raise RuntimeError(f"Cannot switch safely: error terminating controller: {e}") from e
+            logger.exception("Error terminating controller")
+            raise OperationError(502, "Cannot switch safely: controller termination failed") from e
 
         if self.log_task:
             self.log_task.cancel()

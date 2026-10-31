@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, List
 from backend.database.db import save_experiment, save_event_log
 from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
+from backend.services.operation_error import OperationError, public_error
 from backend.websocket.manager import ws_manager
 
 logger = logging.getLogger("sdn.experiment")
@@ -29,7 +30,7 @@ class ExperimentRunner:
         repetitions: int = 1
     ) -> Dict[str, Any]:
         if self.is_running:
-            raise RuntimeError("An experiment is already in progress")
+            raise OperationError(409, "An experiment is already in progress")
 
         if controller_type == "comparison":
             return await self.run_comparison(
@@ -119,6 +120,7 @@ class ExperimentRunner:
             # 7. Inject Link Failure
             t_fail = time.time()
             record["failure_timestamp"] = t_fail
+            await mininet_client.set_link_status(fail_src, fail_dst, "down")
             save_event_log("WARNING", "EXPERIMENT", f"Injecting failure: disconnecting {fail_src} <-> {fail_dst}")
             await ws_manager.broadcast({
                 "event_type": "EXPERIMENT_PROGRESS",
@@ -127,7 +129,6 @@ class ExperimentRunner:
                 "progress_percent": 60,
                 "message": f"Link failure injected: {fail_src} <-> {fail_dst} DOWN"
             })
-            await mininet_client.set_link_status(fail_src, fail_dst, "down")
 
             # 8. Wait for traffic completion or timeout
             expected_duration = (packet_count * traffic_interval) + 3.0
@@ -175,6 +176,10 @@ class ExperimentRunner:
                 "packets_received": record["packets_received"]
             }
 
+            # Restoration is part of the requested run. Confirm it before
+            # persisting/broadcasting successful completion.
+            await mininet_client.set_link_status(fail_src, fail_dst, "up")
+
             # Save to SQLite
             save_experiment(record)
             save_event_log("SUCCESS", "EXPERIMENT", f"Experiment {exp_id} completed successfully!", record["summary"])
@@ -186,8 +191,6 @@ class ExperimentRunner:
                 "message": "Experiment completed successfully"
             })
 
-            # Auto-restore link
-            await mininet_client.set_link_status(fail_src, fail_dst, "up")
             return record
 
         except asyncio.CancelledError:
@@ -205,13 +208,13 @@ class ExperimentRunner:
             logger.error(f"Experiment {exp_id} failed: {e}")
             record["status"] = "FAILED"
             record["end_time"] = datetime.datetime.now().isoformat()
-            record["summary"]["error"] = str(e)
+            record["summary"]["error"] = public_error(e)
             save_experiment(record)
             save_event_log("ERROR", "EXPERIMENT", f"Experiment {exp_id} failed: {e}")
             await ws_manager.broadcast({
                 "event_type": "EXPERIMENT_FINISHED",
                 "experiment": record,
-                "error": str(e)
+                "error": public_error(e)
             })
             raise
         finally:

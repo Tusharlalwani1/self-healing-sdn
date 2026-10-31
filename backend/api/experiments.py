@@ -1,24 +1,22 @@
+from backend.api.runtime_route import RuntimeRoute
 from fastapi import APIRouter, HTTPException
 from backend.models.schemas import ExperimentRunRequest
 from backend.services.experiment_runner import experiment_runner
 from backend.database.db import get_experiments, get_experiment_by_id, delete_experiment_by_id
 
-router = APIRouter(prefix="/api/experiments", tags=["Experiments"])
+router = APIRouter(prefix="/api/experiments", tags=["Experiments"], route_class=RuntimeRoute)
 
 @router.post("/run")
 async def run_experiment(req: ExperimentRunRequest):
-    try:
-        return await experiment_runner.run_experiment(
-            controller_type=req.controller,
-            traffic_interval=req.traffic_interval,
-            packet_count=req.packet_count,
-            failure_delay_sec=req.failure_delay_sec,
-            fail_src=req.fail_link_src,
-            fail_dst=req.fail_link_dst,
-            repetitions=req.repetitions
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await experiment_runner.run_experiment(
+        controller_type=req.controller,
+        traffic_interval=req.traffic_interval,
+        packet_count=req.packet_count,
+        failure_delay_sec=req.failure_delay_sec,
+        fail_src=req.fail_link_src,
+        fail_dst=req.fail_link_dst,
+        repetitions=req.repetitions
+    )
 
 @router.post("/cancel")
 async def cancel_experiment():

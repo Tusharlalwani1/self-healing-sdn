@@ -161,7 +161,7 @@ export const ExperimentLabView: React.FC = () => {
 
             {experimentRunning ? (
               <button
-                onClick={() => cancelExperiment()}
+                onClick={() => cancelExperiment().catch(console.error)}
                 className="flex items-center space-x-2 py-2.5 px-5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition"
               >
                 <XCircle className="w-4 h-4" />

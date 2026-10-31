@@ -109,7 +109,7 @@ export const TrafficView: React.FC = () => {
           <div className="pt-2">
             {trafficStats.active ? (
               <button
-                onClick={() => stopTraffic()}
+                onClick={() => stopTraffic().catch(console.error)}
                 className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition"
               >
                 <Square className="w-4 h-4 fill-current" />

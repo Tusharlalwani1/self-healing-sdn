@@ -19,8 +19,8 @@ class TrafficService:
             await self.stop()
 
         job_id = job_id or f"traffic_{uuid.uuid4().hex[:8]}"
-        self.active_job_id = job_id
         res = await mininet_client.start_traffic(src, dst, interval, count, job_id)
+        self.active_job_id = job_id
 
         self.polling_task = asyncio.create_task(self._poll_stats(job_id))
         return res
