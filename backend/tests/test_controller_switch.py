@@ -63,6 +63,7 @@ class ControllerSwitchTests(unittest.IsolatedAsyncioTestCase):
     async def test_healthy_same_mode_is_noop(self):
         manager = self.manager("fast_failover")
         manager.is_port_in_use.return_value = True
+        manager.owns_listener = Mock(return_value=True)
         result = await manager.select_controller("fast_failover")
         self.assertEqual(result["status"], "ok")
         self.assertEqual(self.events, [])

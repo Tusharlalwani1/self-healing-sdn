@@ -77,10 +77,12 @@ async def websocket_events_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
     try:
         # Send initial state snapshot on connection
+        await controller_manager.reconcile_health()
         await websocket.send_json({
             "event_type": "INITIAL_STATE",
             "controller": controller_manager.active_controller,
             "controller_status": controller_manager.status,
+            **controller_manager.health_details(),
             "simulation_state": mininet_client.simulation_state,
             "active_paths": controller_manager.active_paths,
             "timestamp": time.time()
