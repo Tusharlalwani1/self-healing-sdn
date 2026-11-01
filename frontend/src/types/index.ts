@@ -9,6 +9,9 @@ export interface ControllerInfo {
   status: ControllerStatus;
   features: string[];
   is_active: boolean;
+  pid?: number | null;
+  exit_code?: number | null;
+  failure_reason?: string | null;
 }
 
 export interface NodePort {

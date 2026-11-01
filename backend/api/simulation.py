@@ -12,8 +12,9 @@ router = APIRouter(prefix="/api/simulation", tags=["Simulation"], route_class=Ru
 async def start_simulation(req: SimulationStartRequest = SimulationStartRequest()):
     # 1. Start controller first if not already running
     ctrl_type = req.controller_type or controller_manager.active_controller or "reactive"
-    if controller_manager.active_controller != ctrl_type or controller_manager.status != "READY":
-        await controller_manager.select_controller(ctrl_type)
+    # Shared lifecycle revalidates the managed process/listener even when a
+    # stored READY value predates an exit. Healthy same-mode selection is a no-op.
+    await controller_manager.select_controller(ctrl_type)
 
     # 2. Start Mininet simulation connected to the controller
     res = await mininet_client.start_simulation(CONTROLLER_IP, CONTROLLER_PORT)
@@ -25,10 +26,12 @@ async def stop_simulation():
 
 @router.get("/status")
 async def get_simulation_status():
+    await controller_manager.reconcile_health()
     return {
         "state": mininet_client.simulation_state,
         "active_controller": controller_manager.active_controller,
         "controller_status": controller_manager.status,
+        **controller_manager.health_details(),
         "uptime": time.time() - controller_manager.started_at if controller_manager.started_at else 0.0
     }
 

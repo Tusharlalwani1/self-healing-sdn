@@ -22,6 +22,10 @@ class ControllerManager:
         self.status: str = "NOT_SELECTED"  # NOT_SELECTED, STARTING, READY, FAILED, STOPPED
         self.process: Optional[asyncio.subprocess.Process] = None
         self.log_task: Optional[asyncio.Task] = None
+        self.watch_task: Optional[asyncio.Task] = None
+        self.exit_code: Optional[int] = None
+        self.failure_reason: Optional[str] = None
+        self._stopping_process = None
         self.recent_logs: List[str] = []
         self.active_paths: List[List[str]] = []
         self.routes_summary: Dict[str, Any] = {}
@@ -34,6 +38,7 @@ class ControllerManager:
             return s.connect_ex(("127.0.0.1", port)) == 0
 
     async def get_controller_info(self) -> List[Dict[str, Any]]:
+        await self.reconcile_health()
         return [
             {
                 "id": "baseline",
@@ -41,7 +46,8 @@ class ControllerManager:
                 "description": "Shortest-path forwarding without automatic recovery on link failures. Drops packets until flow timeout.",
                 "features": ["OpenFlow 1.3", "Topology Discovery", "Shortest Path (NetworkX)", "No Recovery Actions"],
                 "status": self.status if self.active_controller == "baseline" else "STOPPED",
-                "is_active": self.active_controller == "baseline"
+                "is_active": self.active_controller == "baseline",
+                **(self.health_details() if self.active_controller == "baseline" else {})
             },
             {
                 "id": "reactive",
@@ -49,7 +55,8 @@ class ControllerManager:
                 "description": "Detects link failure events, recalculates shortest alternative paths in controller, and updates OpenFlow tables in milliseconds.",
                 "features": ["OpenFlow 1.3", "Link Delete Detection", "Real-Time Path Rerouting", "Automated Flow Flushes"],
                 "status": self.status if self.active_controller == "reactive" else "STOPPED",
-                "is_active": self.active_controller == "reactive"
+                "is_active": self.active_controller == "reactive",
+                **(self.health_details() if self.active_controller == "reactive" else {})
             },
             {
                 "id": "fast_failover",
@@ -57,7 +64,8 @@ class ControllerManager:
                 "description": "Installs pre-configured primary & backup buckets into switch group tables. Data plane switches locally with sub-millisecond failover.",
                 "features": ["OpenFlow 1.3 Group Tables", "OFPGT_FF (Fast Failover)", "Local Datapath Failover", "Global Route Reconciliation"],
                 "status": self.status if self.active_controller == "fast_failover" else "STOPPED",
-                "is_active": self.active_controller == "fast_failover"
+                "is_active": self.active_controller == "fast_failover",
+                **(self.health_details() if self.active_controller == "fast_failover" else {})
             }
         ]
 
@@ -67,7 +75,7 @@ class ControllerManager:
 
         async with self._lifecycle_lock:
             if not force_restart and self.active_controller == controller_type and self.status == "READY":
-                if self.process and self.process.returncode is None and self.is_port_in_use(CONTROLLER_PORT):
+                if self.process and self.process.returncode is None and self.owns_listener(self.process):
                     return {"status": "ok", "message": f"{controller_type} already active and ready"}
 
             try:
@@ -76,6 +84,8 @@ class ControllerManager:
 
                 self.active_controller = controller_type
                 self.status = "STARTING"
+                self.exit_code = None
+                self.failure_reason = None
                 self.active_paths = []
                 self.routes_summary = {}
                 self.last_recovery_event = None
@@ -102,6 +112,7 @@ class ControllerManager:
                 return await self.start_controller(controller_type)
             except Exception as exc:
                 self.status = "FAILED"
+                self.failure_reason = public_error(exc)
                 message = f"Controller switch to {controller_type} failed: {exc}"
                 logger.error(message)
                 save_event_log("ERROR", "CONTROLLER", message)
@@ -148,7 +159,7 @@ class ControllerManager:
                 await asyncio.sleep(0.5)
                 if self.process.returncode is not None:
                     break
-                if self.is_port_in_use(CONTROLLER_PORT):
+                if self.owns_listener(self.process):
                     port_ready = True
                     break
 
@@ -167,10 +178,15 @@ class ControllerManager:
                 "status": "READY",
                 "timestamp": time.time()
             })
+            # Finish the startup broadcast before the watcher can broadcast a
+            # later failure, preserving READY -> FAILED message ordering.
+            self.watch_task = asyncio.create_task(self._watch_controller(self.process))
             return {"status": "ok", "controller": controller_type, "state": "READY", "port_ready": port_ready}
 
         except Exception as e:
             self.status = "FAILED"
+            self.failure_reason = public_error(e)
+            self.exit_code = self.process.returncode if self.process else None
             logger.error(f"Failed to start controller: {e}")
             save_event_log("ERROR", "CONTROLLER", f"Failed to start controller: {e}")
             await ws_manager.broadcast({
@@ -187,6 +203,13 @@ class ControllerManager:
             await self._stop_controller()
 
     async def _stop_controller(self):
+        # Under the lifecycle lock, suppress detection BEFORE signalling the
+        # process. A cancelled old watcher cannot affect a replacement.
+        self._stopping_process = self.process
+        if self.watch_task:
+            self.watch_task.cancel()
+            await asyncio.gather(self.watch_task, return_exceptions=True)
+            self.watch_task = None
         if not self.process:
             self.status = "STOPPED"
             return
@@ -217,6 +240,7 @@ class ControllerManager:
             self.log_task = None
 
         self.process = None
+        self._stopping_process = None
         self.status = "STOPPED"
         await ws_manager.broadcast({
             "event_type": "CONTROLLER_STATUS",
@@ -224,6 +248,73 @@ class ControllerManager:
             "status": "STOPPED",
             "timestamp": time.time()
         })
+
+    def owns_listener(self, process) -> bool:
+        """An unrelated listener is not readiness for our managed process."""
+        if process.returncode is not None:
+            return False
+        try:
+            return any(conn.status == psutil.CONN_LISTEN and conn.laddr.port == CONTROLLER_PORT
+                       and conn.laddr.ip in ("127.0.0.1", "0.0.0.0", "::", "::1")
+                       for conn in psutil.Process(process.pid).net_connections(kind="inet"))
+        except (psutil.Error, OSError):
+            return False
+
+    def health_details(self):
+        return {"pid": getattr(self.process, "pid", None),
+                "exit_code": self.exit_code, "failure_reason": self.failure_reason}
+
+    async def _mark_failed(self, process, reason, exit_code=None):
+        # State commits before the first await: atomic on this event loop.
+        # The watcher never waits for the lifecycle lock (stop awaits watcher
+        # cancellation while holding that lock). Identity + stop intent protect
+        # replacements and deliberate termination without a lock cycle.
+        if self.process is not process or (process is not None and self._stopping_process is process):
+            return
+        if self.status == "FAILED" and self.failure_reason == reason:
+            return
+        self.status = "FAILED"
+        self.exit_code = exit_code
+        self.failure_reason = reason
+        logger.error(reason)
+        save_event_log("ERROR", "CONTROLLER", reason, self.health_details())
+        await ws_manager.broadcast({"event_type": "CONTROLLER_STATUS",
+                                    "controller": self.active_controller, "status": "FAILED",
+                                    "error": reason, **self.health_details(), "timestamp": time.time()})
+
+    async def reconcile_health(self):
+        # Reads never stop/restart a process or alter the Mininet network.
+        if self.status != "READY":
+            return
+        async with self._lifecycle_lock:
+            process = self.process
+            if self.status != "READY":
+                return
+            if process is None:
+                await self._mark_failed(None, "Managed Ryu process is unavailable")
+            elif process.returncode is not None:
+                await self._mark_failed(process, f"Managed Ryu exited unexpectedly with code {process.returncode}", process.returncode)
+            elif not self.owns_listener(process):
+                await self._mark_failed(process, "Managed Ryu listener on port 6653 is unavailable")
+
+    async def _watch_controller(self, process):
+        wait_task = asyncio.create_task(process.wait())
+        try:
+            while True:
+                try:
+                    code = await asyncio.wait_for(asyncio.shield(wait_task), timeout=1.0)
+                except asyncio.TimeoutError:
+                    if self.process is not process:
+                        return
+                    if self.status == "READY" and not self.owns_listener(process):
+                        await self._mark_failed(process, "Managed Ryu listener on port 6653 is unavailable")
+                    continue
+                await self._mark_failed(process, f"Managed Ryu exited unexpectedly with code {code}", code)
+                return
+        finally:
+            if not wait_task.done():
+                wait_task.cancel()
+            await asyncio.gather(wait_task, return_exceptions=True)
 
     def _kill_process_on_port(self, port: int):
         for proc in psutil.process_iter(['pid', 'name']):

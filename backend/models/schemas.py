@@ -8,6 +8,9 @@ class ControllerInfo(BaseModel):
     status: str
     features: List[str]
     is_active: bool = False
+    pid: Optional[int] = None
+    exit_code: Optional[int] = None
+    failure_reason: Optional[str] = None
 
 class ControllerSelectRequest(BaseModel):
     controller_type: Literal["baseline", "reactive", "fast_failover"]

@@ -39,6 +39,7 @@ export const App: React.FC = () => {
 
     // Periodic telemetry polling fallback
     const interval = setInterval(() => {
+      fetchControllers();
       fetchTopology();
       if (simulationState === 'RUNNING') {
         fetchTrafficStats();

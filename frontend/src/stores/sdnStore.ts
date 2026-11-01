@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   ControllerInfo,
   ControllerType,
+  ControllerStatus,
   SimulationState,
   TopologyNode,
   TopologyLink,
@@ -38,6 +39,7 @@ interface SDNState {
   // Controller & Simulation
   controllers: ControllerInfo[];
   activeController: ControllerType | null;
+  controllerStatus: ControllerStatus;
   simulationState: SimulationState;
   uptime: number;
 
@@ -97,6 +99,8 @@ function topologyState(topology: TopologyResponse) {
 }
 
 let topologyRequestId = 0;
+let controllerStatusVersion = 0;
+let controllerRequestId = 0;
 
 export const useSDNStore = create<SDNState>((set, get) => ({
   currentTab: 'overview',
@@ -109,6 +113,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   controllers: [],
   activeController: null,
+  controllerStatus: 'NOT_SELECTED',
   simulationState: 'STOPPED',
   uptime: 0,
 
@@ -145,11 +150,15 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   fetchControllers: async () => {
     const requestedController = get().activeController;
+    const requestedVersion = controllerStatusVersion;
+    const requestId = ++controllerRequestId;
     try {
       const list = await api.getControllers();
+      if (requestedVersion !== controllerStatusVersion || requestId !== controllerRequestId) return;
       const active = list.find((c) => c.is_active)?.id || null;
       set((s) => ({
         controllers: list,
+        controllerStatus: list.find((c) => c.is_active)?.status || 'NOT_SELECTED',
         ...(s.activeController === requestedController
           ? topologyState(mergeTopology(s.topology, { active_controller: active })) : {}),
       }));
@@ -336,15 +345,28 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     if (!event_type) return;
 
     if (event_type === 'INITIAL_STATE') {
+      if (msg.controller_status) {
+        ++controllerStatusVersion;
+        set((s) => ({ controllerStatus: msg.controller_status,
+          controllers: s.controllers.map((controller) => ({ ...controller,
+            status: controller.id === msg.controller ? msg.controller_status : 'STOPPED',
+          })),
+          ...(msg.controller_status === 'FAILED' ? { error: msg.failure_reason || 'Controller failed' } : {}),
+        }));
+      }
       set((s) => topologyState(mergeTopology(s.topology, {
         active_controller: msg.controller,
         simulation_state: msg.simulation_state,
         active_paths: msg.active_paths,
       })));
     } else if (event_type === 'CONTROLLER_STATUS') {
+      ++controllerStatusVersion;
       set((s) => ({
+        controllerStatus: msg.status || s.controllerStatus,
         controllers: s.controllers.map((controller) => ({ ...controller,
           status: controller.id === msg.controller ? msg.status : 'STOPPED',
+          ...(controller.id === msg.controller ? { pid: msg.pid, exit_code: msg.exit_code,
+            failure_reason: msg.failure_reason || msg.error } : {}),
         })),
         ...(msg.status === 'FAILED' ? { error: msg.error || 'Controller switch failed' } : {}),
       }));

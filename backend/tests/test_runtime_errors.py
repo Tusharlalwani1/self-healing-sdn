@@ -46,6 +46,10 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
         for module in (links, simulation, topology, ts, cm, er):
             patch.object(module, "mininet_client", self.client).start()
         self.events = patch.object(mc, "save_event_log").start()
+        # Simulation API tests isolate Ryu IO explicitly; READY alone is no
+        # longer sufficient proof of a managed, listening process.
+        patch.object(simulation.controller_manager, "select_controller",
+                     AsyncMock(return_value={"status": "ok"})).start()
         patch.object(cm, "save_event_log").start()
         self.broadcast = patch.object(mc.ws_manager, "broadcast", new_callable=AsyncMock).start()
         self.service = ts.TrafficService()

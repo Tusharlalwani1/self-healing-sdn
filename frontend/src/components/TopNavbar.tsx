@@ -18,6 +18,7 @@ export const TopNavbar: React.FC = () => {
     connected,
     simulationState,
     activeController,
+    controllerStatus,
     controllers,
     selectController,
     startSimulation,
@@ -36,6 +37,11 @@ export const TopNavbar: React.FC = () => {
   };
 
   const getSimBadge = () => {
+    if (simulationState === 'RUNNING' && controllerStatus === 'FAILED') {
+      return <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+        <AlertTriangle className="w-3.5 h-3.5" />MININET RUNNING / CONTROLLER FAILED
+      </span>;
+    }
     switch (simulationState) {
       case 'RUNNING':
         return (
@@ -75,7 +81,7 @@ export const TopNavbar: React.FC = () => {
         {/* Controller Dropdown */}
         <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
           <Cpu className="w-4 h-4 text-blue-400" />
-          <span className="text-xs text-slate-400 font-medium">Controller:</span>
+          <span className="text-xs text-slate-400 font-medium">Controller ({controllerStatus}):</span>
           <select
             value={activeController || ''}
             onChange={handleControllerChange}
@@ -146,7 +152,7 @@ export const TopNavbar: React.FC = () => {
           {connected ? (
             <>
               <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400 text-[11px]">LIVE</span>
+              <span className="text-emerald-400 text-[11px]">WS LIVE</span>
             </>
           ) : (
             <>

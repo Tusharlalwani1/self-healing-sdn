@@ -56,7 +56,8 @@ export const api = {
     }),
   stopSimulation: () => fetchJson<{ status: string; message: string }>('/api/simulation/stop', { method: 'POST' }),
   getSimulationStatus: () =>
-    fetchJson<{ state: string; active_controller?: string; controller_status?: string; uptime: number }>(
+    fetchJson<{ state: string; active_controller?: string; controller_status?: string; uptime: number;
+      pid?: number | null; exit_code?: number | null; failure_reason?: string | null }>(
       '/api/simulation/status'
     ),
   resetSimulation: () => fetchJson<{ status: string }>('/api/simulation/reset', { method: 'POST' }),
