@@ -61,6 +61,7 @@ class TrafficStartRequest(BaseModel):
 class TrafficStats(BaseModel):
     job_id: str
     active: bool
+    accounting_complete: bool = False
     transmitted: int = 0
     received: int = 0
     loss_percent: float = 0.0

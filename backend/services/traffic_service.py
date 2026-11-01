@@ -21,6 +21,11 @@ class TrafficService:
         job_id = job_id or f"traffic_{uuid.uuid4().hex[:8]}"
         res = await mininet_client.start_traffic(src, dst, interval, count, job_id)
         self.active_job_id = job_id
+        self.latest_stats = {"job_id": job_id, "active": True, "transmitted": 0,
+                             "received": 0, "loss_percent": 0.0, "history": [],
+                             "min_rtt": None, "avg_rtt": None, "max_rtt": None,
+                             "last_rtt": None, "duration_sec": 0.0,
+                             "accounting_complete": False}
 
         self.polling_task = asyncio.create_task(self._poll_stats(job_id))
         return res
@@ -31,10 +36,15 @@ class TrafficService:
 
         job_id = self.active_job_id
         res = await mininet_client.stop_traffic(job_id)
+        # The worker drains SIGINT's final summary before returning. Keep that
+        # exact snapshot after clearing the active job, rather than an old tick.
+        self.latest_stats = {k: v for k, v in res.items() if k != "status"}
         if self.polling_task:
             self.polling_task.cancel()
             self.polling_task = None
         self.active_job_id = None
+        await ws_manager.broadcast({"event_type": "TRAFFIC_COMPLETED",
+                                    "stats": self.latest_stats, "timestamp": time.time()})
         return res
 
     async def get_stats(self) -> Dict[str, Any]:
@@ -49,6 +59,8 @@ class TrafficService:
         while self.active_job_id == job_id:
             try:
                 stats = await mininet_client.get_traffic_stats(job_id)
+                if self.active_job_id != job_id:
+                    break
                 if stats.get("status") == "not_found":
                     break
                 self.latest_stats = stats
