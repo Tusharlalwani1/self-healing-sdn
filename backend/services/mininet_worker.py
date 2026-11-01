@@ -20,8 +20,10 @@ from typing import Dict, Any, Optional
 
 # Direct script execution uses system Python; package imports support tests.
 if __package__:
+    from .ping_accounting import PingAccounting
     from .operation_error import OperationError, public_error, safe_message
 else:
+    from ping_accounting import PingAccounting
     from operation_error import OperationError, public_error, safe_message
 
 # Mininet imports
@@ -92,8 +94,9 @@ class MininetWorker:
     def stop_network(self):
         logger.info("Stopping Mininet network...")
         with self.traffic_lock:
-            for job_id, job in list(self.traffic_jobs.items()):
-                self._stop_traffic_job(job_id)
+            job_ids = list(self.traffic_jobs)
+        for job_id in job_ids:
+            self._stop_traffic_job(job_id)
 
         if self.net:
             try:
@@ -281,17 +284,17 @@ class MininetWorker:
             raise OperationError(404, "Source or destination host not found")
 
         dst_ip = dst_node.IP()
+        if job_id in self.traffic_jobs:
+            self._stop_traffic_job(job_id)
         with self.traffic_lock:
-            # Stop existing job if any
-            if job_id in self.traffic_jobs:
-                self._stop_traffic_job(job_id)
 
             # Prime ARP / OpenFlow path discovery if needed
             src_node.cmd(f"ping -c 1 -W 1 {dst_ip}")
 
             cmd = ["stdbuf", "-oL", "-eL", "ping", "-i", str(interval), "-c", str(count), dst_ip]
             logger.info(f"Starting traffic job {job_id}: {' '.join(cmd)} on {src}")
-            proc = src_node.popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            proc = src_node.popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+                                  env={**os.environ, "LC_ALL": "C"})
 
             # Report process launch errors before claiming an active job.
             if proc.poll() is not None and proc.returncode not in (0, 1):
@@ -312,91 +315,104 @@ class MininetWorker:
                 "last_rtt": None,
                 "history": [],
                 "start_time": time.time(),
-                "duration_sec": 0.0
+                "duration_sec": 0.0,
+                "accounting_complete": False,
+                "_sample_stop": threading.Event(),
             }
+            job_data["_accounting"] = PingAccounting(job_data)
             self.traffic_jobs[job_id] = job_data
 
             # Start thread to read output
             t = threading.Thread(target=self._monitor_traffic, args=(job_id, proc), daemon=True)
+            job_data["_monitor"] = t
             t.start()
 
         return {"status": "ok", "job_id": job_id, "active": True}
 
-    def _monitor_traffic(self, job_id: str, proc: subprocess.Popen):
-        seq_pattern = re.compile(r"icmp_seq=(\d+)\s+ttl=\d+\s+time=([\d\.]+)\s*ms")
-        stats_pattern = re.compile(r"(\d+)\s+packets transmitted,\s+(\d+)\s+(?:packets\s+)?received.*?([\d\.]+)%\s+packet loss")
-        rtt_pattern = re.compile(r"rtt min/avg/max/mdev =\s+([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+)\s*ms")
+    @staticmethod
+    def _ping_handler_ready(proc, signum):
+        # stdbuf/mnexec may not have exec'd ping yet. /proc's caught-signal
+        # mask avoids sending SIGQUIT before ping installs its handler. Unlike
+        # stdout's header, this also works with a fully buffered silent outage.
+        try:
+            with open(f"/proc/{proc.pid}/status", encoding="ascii") as status:
+                for line in status:
+                    if line.startswith("SigCgt:"):
+                        return bool(int(line.split()[1], 16) & (1 << (signum - 1)))
+        except (OSError, ValueError):
+            return False
+        return False
 
-        expected_seq = 1
-        for line in proc.stdout:
-            line = line.strip()
-            with self.traffic_lock:
-                if job_id not in self.traffic_jobs:
+    @staticmethod
+    def _sample_traffic(proc, stop_event):
+        # Signals ask ping for its own counters; the timer never estimates Tx.
+        while not stop_event.wait(0.25):
+            try:
+                if proc.poll() is not None:
                     break
-                job = self.traffic_jobs[job_id]
+                if MininetWorker._ping_handler_ready(proc, signal.SIGQUIT):
+                    proc.send_signal(signal.SIGQUIT)
+            except ProcessLookupError:
+                break
+
+    def _monitor_traffic(self, job_id: str, proc: subprocess.Popen):
+        job = self.traffic_jobs[job_id]
+        threading.Thread(target=self._sample_traffic,
+                         args=(proc, job["_sample_stop"]), daemon=True).start()
+        try:
+            for line in proc.stdout:
+                with self.traffic_lock:
+                    job["_accounting"].feed(line, time.time() - job["start_time"])
+            proc.wait()
+        except Exception:
+            logger.exception("Failed to read ping accounting for %s", job_id)
+        finally:
+            job["_sample_stop"].set()
+            with self.traffic_lock:
+                job["accounting_complete"] = job["_accounting"].final_seen
+                job["active"] = False
                 job["duration_sec"] = time.time() - job["start_time"]
 
-                # Parse live ping responses
-                m_seq = seq_pattern.search(line)
-                if m_seq:
-                    seq = int(m_seq.group(1))
-                    rtt = float(m_seq.group(2))
-                    job["transmitted"] = max(job["transmitted"], seq)
-                    job["received"] += 1
-                    job["last_rtt"] = rtt
-                    job["loss_percent"] = max(0.0, round(((job["transmitted"] - job["received"]) / job["transmitted"]) * 100.0, 1))
-                    job["history"].append({
-                        "seq": seq,
-                        "rtt": rtt,
-                        "success": True,
-                        "t": round(job["duration_sec"], 2)
-                    })
-                    if len(job["history"]) > 200:
-                        job["history"].pop(0)
-
-                # Parse final summary
-                m_stats = stats_pattern.search(line)
-                if m_stats:
-                    job["transmitted"] = int(m_stats.group(1))
-                    job["received"] = int(m_stats.group(2))
-                    job["loss_percent"] = float(m_stats.group(3))
-
-                m_rtt = rtt_pattern.search(line)
-                if m_rtt:
-                    job["min_rtt"] = float(m_rtt.group(1))
-                    job["avg_rtt"] = float(m_rtt.group(2))
-                    job["max_rtt"] = float(m_rtt.group(3))
-
-        proc.wait()
-        with self.traffic_lock:
-            if job_id in self.traffic_jobs:
-                self.traffic_jobs[job_id]["active"] = False
-
     def stop_traffic(self, job_id: str) -> Dict[str, Any]:
-        with self.traffic_lock:
-            return self._stop_traffic_job(job_id)
+        return self._stop_traffic_job(job_id)
 
     def _stop_traffic_job(self, job_id: str) -> Dict[str, Any]:
-        if job_id not in self.traffic_jobs:
+        with self.traffic_lock:
+            job = self.traffic_jobs.get(job_id)
+        if job is None:
             return {"status": "not_found", "job_id": job_id}
-        job = self.traffic_jobs[job_id]
         proc = job.get("proc")
         if proc and proc.poll() is None:
-            proc.terminate()
+            # SIGINT asks iputils for a final summary; SIGTERM does not.
+            deadline = time.monotonic() + 1.0
+            while proc.poll() is None and not self._ping_handler_ready(proc, signal.SIGINT):
+                if time.monotonic() >= deadline:
+                    raise OperationError(502, "Ping stop handler was not ready; traffic stop unconfirmed")
+                time.sleep(0.01)
+            if proc.poll() is None:
+                proc.send_signal(signal.SIGINT)
             try:
-                proc.wait(timeout=1.0)
+                proc.wait(timeout=2.0)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=1.0)
-        job["active"] = False
-        return {"status": "ok", "job_id": job_id, "active": False}
+        monitor = job.get("_monitor")
+        if monitor:
+            # Never hold traffic_lock while waiting for the reader to drain.
+            monitor.join(timeout=2.0)
+            if monitor.is_alive():
+                raise OperationError(502, "Traffic stopped but final accounting reader did not finish")
+        if not job.get("accounting_complete"):
+            raise OperationError(502, "Traffic final accounting could not be confirmed")
+        return {"status": "ok", **self.get_traffic_stats(job_id)}
 
     def get_traffic_stats(self, job_id: str) -> Dict[str, Any]:
         with self.traffic_lock:
             if job_id not in self.traffic_jobs:
                 return {"status": "not_found", "active": False}
             job = self.traffic_jobs[job_id]
-            res = {k: v for k, v in job.items() if k != "proc"}
+            res = {k: v for k, v in job.items() if k != "proc" and not k.startswith("_")}
+            res["history"] = list(job["history"])
             return res
 
     def get_switch_info(self, dpid: int) -> Dict[str, Any]:

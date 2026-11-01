@@ -261,8 +261,11 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   startTraffic: async (params) => {
     set({ error: null });
     try {
-      await api.startTraffic(params || {});
-      set((s) => ({ trafficStats: { ...s.trafficStats, active: true } }));
+      const result = await api.startTraffic(params || {});
+      set({ trafficStats: { job_id: result.job_id, active: true, transmitted: 0,
+        received: 0, loss_percent: 0, duration_sec: 0, history: [],
+        min_rtt: null, avg_rtt: null, max_rtt: null, last_rtt: null,
+        accounting_complete: false } });
     } catch (e: any) {
       set({ error: e.message });
       throw e;
@@ -271,8 +274,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   stopTraffic: async () => {
     try {
-      await api.stopTraffic();
-      set((s) => ({ trafficStats: { ...s.trafficStats, active: false } }));
+      const result = await api.stopTraffic();
+      set((s) => ({ trafficStats: { ...s.trafficStats, ...result, active: false } }));
     } catch (e: any) {
       set({ error: e.message });
       throw e;

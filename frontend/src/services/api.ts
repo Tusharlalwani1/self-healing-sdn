@@ -87,7 +87,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(params),
     }),
-  stopTraffic: () => fetchJson<{ status: string }>('/api/traffic/stop', { method: 'POST' }),
+  stopTraffic: () => fetchJson<{ status: string } & Partial<TrafficStats>>('/api/traffic/stop', { method: 'POST' }),
   getTrafficStats: () => fetchJson<TrafficStats>('/api/traffic/stats'),
 
   // Experiments

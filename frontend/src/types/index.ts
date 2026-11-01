@@ -54,15 +54,16 @@ export interface TopologyResponse {
 }
 
 export interface TrafficStats {
+  accounting_complete?: boolean;
   job_id?: string;
   active: boolean;
   transmitted: number;
   received: number;
   loss_percent: number;
-  min_rtt?: number;
-  avg_rtt?: number;
-  max_rtt?: number;
-  last_rtt?: number;
+  min_rtt?: number | null;
+  avg_rtt?: number | null;
+  max_rtt?: number | null;
+  last_rtt?: number | null;
   duration_sec: number;
   history?: {
     seq: number;

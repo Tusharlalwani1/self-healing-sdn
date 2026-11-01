@@ -145,7 +145,9 @@ class ExperimentRunner:
                 final_stats = await mininet_client.get_traffic_stats(traffic_job_id)
 
             # Stop traffic explicitly if still active
-            await mininet_client.stop_traffic(traffic_job_id)
+            stopped_stats = await mininet_client.stop_traffic(traffic_job_id)
+            if "transmitted" in stopped_stats:
+                final_stats = stopped_stats
 
             # 9. Extract performance metrics
             record["end_time"] = datetime.datetime.now().isoformat()

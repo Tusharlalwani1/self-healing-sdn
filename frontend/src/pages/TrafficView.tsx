@@ -147,13 +147,13 @@ export const TrafficView: React.FC = () => {
             <div className={`text-2xl font-bold font-mono mt-2 ${trafficStats.loss_percent > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
               {trafficStats.loss_percent}%
             </div>
-            <span className="text-[10px] text-slate-500">drop ratio</span>
+            <span className="text-[10px] text-slate-500">unanswered / sent</span>
           </div>
 
           <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Average RTT</span>
             <div className="text-2xl font-bold text-sky-400 font-mono mt-2">
-              {trafficStats.avg_rtt ? `${trafficStats.avg_rtt.toFixed(1)}ms` : 'N/A'}
+              {trafficStats.avg_rtt != null ? `${trafficStats.avg_rtt.toFixed(1)}ms` : 'N/A'}
             </div>
             <span className="text-[10px] text-slate-500">round-trip delay</span>
           </div>
@@ -161,11 +161,11 @@ export const TrafficView: React.FC = () => {
           <div className="col-span-2 sm:col-span-4 glass-panel p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between text-xs font-mono">
             <div>
               <span className="text-slate-500 mr-2">Min RTT:</span>
-              <span className="text-slate-200 font-bold">{trafficStats.min_rtt ? `${trafficStats.min_rtt}ms` : 'N/A'}</span>
+              <span className="text-slate-200 font-bold">{trafficStats.min_rtt != null ? `${trafficStats.min_rtt}ms` : 'N/A'}</span>
             </div>
             <div>
               <span className="text-slate-500 mr-2">Max RTT:</span>
-              <span className="text-slate-200 font-bold">{trafficStats.max_rtt ? `${trafficStats.max_rtt}ms` : 'N/A'}</span>
+              <span className="text-slate-200 font-bold">{trafficStats.max_rtt != null ? `${trafficStats.max_rtt}ms` : 'N/A'}</span>
             </div>
             <div>
               <span className="text-slate-500 mr-2">Last Sequence:</span>
@@ -183,7 +183,7 @@ export const TrafficView: React.FC = () => {
             Live Packet Round-Trip Latency (ms)
           </h2>
           <span className="text-xs text-slate-400 font-mono">
-            {trafficStats.active ? '● LIVE TELEMETRY' : 'IDLE'}
+            {trafficStats.active ? '● LIVE TELEMETRY' : trafficStats.accounting_complete === false ? 'FINAL COUNTERS UNCONFIRMED' : 'IDLE'}
           </span>
         </div>
 
