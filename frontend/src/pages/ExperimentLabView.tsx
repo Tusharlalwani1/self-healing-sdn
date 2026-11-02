@@ -162,10 +162,11 @@ export const ExperimentLabView: React.FC = () => {
             {experimentRunning ? (
               <button
                 onClick={() => cancelExperiment().catch(console.error)}
+                disabled={experimentProgress?.status === 'CANCELLING'}
                 className="flex items-center space-x-2 py-2.5 px-5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition"
               >
                 <XCircle className="w-4 h-4" />
-                <span>Cancel Experiment</span>
+                <span>{experimentProgress?.status === 'CANCELLING' ? 'Cleaning up...' : 'Cancel Experiment'}</span>
               </button>
             ) : (
               <button
@@ -190,7 +191,7 @@ export const ExperimentLabView: React.FC = () => {
                   IN PROGRESS
                 </span>
               ) : (
-                <span className="text-[10px] font-mono text-slate-500">READY</span>
+                <span className="text-[10px] font-mono text-slate-500">{experimentProgress?.status || 'READY'}</span>
               )}
             </div>
 

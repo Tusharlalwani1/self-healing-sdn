@@ -340,8 +340,16 @@ class MininetClient:
         node1: str,
         node2: str,
         status: str,
-        experiment_id: Optional[str] = None
+        experiment_id: Optional[str] = None,
+        expected_runtime: Optional[str] = None
     ) -> Dict[str, Any]:
+        async with self._runtime_lock:
+            if expected_runtime is not None and (self.runtime_id != expected_runtime or
+                                                 self.experiment_id != experiment_id):
+                raise OperationError(409, "Experiment no longer owns this runtime link")
+            return await self._set_link_status(node1, node2, status, experiment_id)
+
+    async def _set_link_status(self, node1, node2, status, experiment_id=None):
         if self.experiment_id and experiment_id != self.experiment_id:
             raise OperationError(409, "Link controls are owned by the active experiment")
         if self.simulation_state == "STOPPED":
@@ -418,6 +426,9 @@ class MininetClient:
         self._traffic_sequence += 1
         owner = {"job_id": job_id, **self.runtime_context(), **self.controller_context(),
                  "experiment_id": experiment_id, "traffic_sequence": self._traffic_sequence}
+        # Reserve identity before IPC: a lost start acknowledgement can still
+        # leave a worker job that exact-owner cleanup must be able to stop.
+        self._traffic_owners[job_id] = owner
         res = await self._send_command({
             "command": "start_traffic",
             "src": src,
@@ -439,6 +450,24 @@ class MininetClient:
         )
 
         return self.traffic_stats(res, job_id)
+
+    async def stop_experiment_traffic(self, job_id, experiment_id, runtime_id):
+        async with self._runtime_lock:
+            owner = self._traffic_owners.get(job_id)
+            if owner is None:
+                return None  # start never acquired/attempted a worker job
+            if (owner.get("experiment_id") != experiment_id or owner.get("runtime_id") != runtime_id or
+                    self.runtime_id != runtime_id):
+                raise OperationError(409, "Experiment no longer owns this traffic runtime")
+            try:
+                result = await self._stop_traffic(job_id)
+            except OperationError as exc:
+                if exc.status_code == 404:
+                    return None  # confirmed absent after an unsuccessful start
+                raise
+            if result.get("active", True) or not result.get("accounting_complete"):
+                raise OperationError(502, "Experiment traffic cleanup was not confirmed")
+            return result
 
     async def stop_traffic(self, *args, **kwargs):
         async with self._runtime_lock:

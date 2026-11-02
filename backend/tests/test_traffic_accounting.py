@@ -175,6 +175,7 @@ class TrafficServiceTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(er.controller_manager, "status", "READY"), \
                 patch.object(er.controller_manager, "last_recovery_event", None), \
                 patch.object(er.mininet_client, "simulation_state", "RUNNING"), \
+                patch.object(er.mininet_client, "get_topology", AsyncMock(return_value={"links": [{"src": "s1", "dst": "s2", "status": "UP"}]})), \
                 patch.object(er.mininet_client, "set_link_status", new_callable=AsyncMock), \
                 patch.object(er.mininet_client, "pingall", new_callable=AsyncMock), \
                 patch.object(er.mininet_client, "start_traffic", AsyncMock(side_effect=start)), \

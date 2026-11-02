@@ -66,6 +66,10 @@ async def startup_event():
 async def shutdown_event():
     logger.info("Shutting down SDN Control Center backend...")
     try:
+        await experiment_runner.shutdown()
+    except Exception as e:
+        logger.warning(f"Error finalizing experiment on shutdown: {e}")
+    try:
         await controller_manager.stop_controller()
     except Exception as e:
         logger.warning(f"Error stopping controller on shutdown: {e}")

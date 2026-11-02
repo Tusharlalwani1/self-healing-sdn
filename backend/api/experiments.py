@@ -19,9 +19,9 @@ async def run_experiment(req: ExperimentRunRequest):
     )
 
 @router.post("/cancel")
-async def cancel_experiment():
-    experiment_runner.cancel()
-    return {"status": "ok", "message": "Cancellation requested"}
+async def cancel_experiment(run_id: str = None):
+    result = await experiment_runner.cancel_and_wait(run_id)
+    return {"status": result["status"], "message": "Experiment finalized", "experiment": result}
 
 @router.get("/history")
 async def get_history(limit: int = 50):

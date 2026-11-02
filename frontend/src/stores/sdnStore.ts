@@ -366,26 +366,39 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   runExperiment: async (params) => {
+    if (get().experimentRunning) throw new Error('An experiment is already in progress');
     const runId = crypto.randomUUID();
     set({ experimentRunId: runId, experimentRunning: true, experimentProgress: { status: 'STARTING', progress_percent: 5 } });
     try {
       const res = await api.runExperiment({ ...params, run_id: runId });
       await get().fetchExperiments();
+      const alreadyFinal = finishedExperimentRuns.has(runId);
       finishedExperimentRuns.add(runId);
-      if (get().experimentRunId === runId) set({ experimentRunning: false, experimentProgress: null });
+      if (get().experimentRunId === runId && !alreadyFinal) set({ experimentRunning: false,
+        experimentProgress: { status: res.status || 'COMPLETED', progress_percent: 100 } });
       return res;
     } catch (e: any) {
+      const alreadyFinal = finishedExperimentRuns.has(runId);
       finishedExperimentRuns.add(runId);
-      if (get().experimentRunId === runId) set({ experimentRunning: false, experimentProgress: null, error: e.message });
+      if (get().experimentRunId === runId && !alreadyFinal) set({ experimentRunning: false,
+        experimentProgress: { status: 'FAILED' }, error: e.message });
       throw e;
     }
   },
 
   cancelExperiment: async () => {
+    const runId = get().experimentRunId;
+    if (!runId) throw new Error('No active experiment');
+    set({ experimentProgress: { ...get().experimentProgress, status: 'CANCELLING', message: 'Waiting for experiment cleanup...' } });
     try {
-      await api.cancelExperiment();
+      const res = await api.cancelExperiment(runId);
+      finishedExperimentRuns.add(runId);
+      if (get().experimentRunId === runId) set({ experimentRunning: false,
+        experimentProgress: { status: res.status, progress_percent: 100 } });
+      await get().fetchExperiments();
     } catch (e: any) {
-      set({ error: e.message });
+      if (get().experimentRunId === runId) set({ error: e.message,
+        experimentProgress: finishedExperimentRuns.has(runId) ? get().experimentProgress : { status: 'RUNNING', message: e.message } });
       throw e;
     }
   },
@@ -464,6 +477,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         set({ trafficStats: stats });
       }
     } else if (event_type === 'EXPERIMENT_PROGRESS') {
+      if (get().experimentProgress?.status === 'CANCELLING' && msg.run_id === get().experimentRunId) return;
       if (msg.run_id) {
         if (finishedExperimentRuns.has(msg.run_id)) return;
         if (get().experimentRunId && get().experimentRunId !== msg.run_id && get().experimentRunning) return;
@@ -475,6 +489,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         experimentProgress: msg,
       });
     } else if (event_type === 'EXPERIMENT_FINISHED' || event_type === 'COMPARISON_FINISHED') {
+      if (msg.run_id && finishedExperimentRuns.has(msg.run_id)) return;
       if (msg.run_id && msg.run_id !== get().experimentRunId) {
         finishedExperimentRuns.add(msg.run_id);
         return;
@@ -482,7 +497,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (msg.run_id) finishedExperimentRuns.add(msg.run_id);
       set({
         experimentRunning: false,
-        experimentProgress: null,
+        experimentProgress: { status: msg.experiment?.status || msg.comparison?.status || (msg.error ? 'FAILED' : 'COMPLETED'), progress_percent: 100 },
       });
       if (msg.error) set({ error: msg.error });
       get().fetchExperiments();

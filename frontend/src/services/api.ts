@@ -103,11 +103,12 @@ export const api = {
     fail_link_dst?: string;
     repetitions?: number;
   }) =>
-    fetchJson<ExperimentRecord | { id: string; type: string; results: ExperimentRecord[] }>('/api/experiments/run', {
+    fetchJson<ExperimentRecord | { id: string; type: string; status: string; results: ExperimentRecord[] }>('/api/experiments/run', {
       method: 'POST',
       body: JSON.stringify(params),
     }),
-  cancelExperiment: () => fetchJson<{ status: string; message: string }>('/api/experiments/cancel', { method: 'POST' }),
+  cancelExperiment: (runId?: string) => fetchJson<{ status: string; message: string }>(
+    `/api/experiments/cancel${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { method: 'POST' }),
   getExperimentHistory: (limit = 50) => fetchJson<ExperimentRecord[]>(`/api/experiments/history?limit=${limit}`),
   getExperiment: (id: string) => fetchJson<ExperimentRecord>(`/api/experiments/${id}`),
   deleteExperiment: (id: string) => fetchJson<{ status: string; deleted: string }>(`/api/experiments/${id}`, { method: 'DELETE' }),
