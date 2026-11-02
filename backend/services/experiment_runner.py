@@ -13,14 +13,90 @@ from backend.websocket.manager import ws_manager
 
 logger = logging.getLogger("sdn.experiment")
 
+class ExperimentCancelled(Exception):
+    pass
+
 class ExperimentRunner:
     def __init__(self):
         self.current_experiment: Optional[Dict[str, Any]] = None
         self.is_running: bool = False
         self._cancel_flag: bool = False
         self.current_run_id = None
+        self._task = None
+        self._cancel_event = asyncio.Event()
+        self._terminal = {}
+        self._comparison = False
 
-    async def run_experiment(
+    def _checkpoint(self):
+        if self._cancel_flag:
+            raise ExperimentCancelled("Experiment cancelled by user")
+
+    async def _step(self, operation):
+        # Complete acquisitions before observing cancellation. Interrupting IPC
+        # would lose acknowledgement of resources that still require cleanup.
+        if self._cancel_flag:
+            operation.close()
+            self._checkpoint()
+        result = await operation
+        self._checkpoint()
+        return result
+
+    async def _sleep(self, delay):
+        self._checkpoint()
+        sleeper = asyncio.create_task(asyncio.sleep(delay))
+        cancelled = asyncio.create_task(self._cancel_event.wait())
+        try:
+            await asyncio.wait((sleeper, cancelled), return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for task in (sleeper, cancelled):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(sleeper, cancelled, return_exceptions=True)
+        self._checkpoint()
+
+    async def run_experiment(self, controller_type, **kwargs):
+        if self.is_running:
+            raise OperationError(409, "An experiment is already in progress")
+        run_id = kwargs.pop("run_id", None) or uuid.uuid4().hex
+        if run_id in self._terminal:
+            raise OperationError(409, "Experiment run ID has already been used")
+        self.is_running = True
+        self.current_run_id = run_id
+        self._cancel_flag = False
+        self._cancel_event = asyncio.Event()
+        self._comparison = controller_type == "comparison"
+
+        async def execute():
+            try:
+                if controller_type == "comparison":
+                    result = await self.run_comparison(run_id=run_id, **{
+                        key: value for key, value in kwargs.items() if key != "repetitions"})
+                else:
+                    result = await self._run_single(controller_type, run_id=run_id, **kwargs)
+                self._terminal[run_id] = result
+                return result
+            except Exception as exc:
+                self._terminal[run_id] = exc
+                if self._comparison:
+                    await ws_manager.broadcast({"event_type": "EXPERIMENT_FINISHED", "run_id": run_id,
+                                                "error": public_error(exc)})
+                raise
+            finally:
+                self.is_running = False
+                self.current_run_id = None
+                self.current_experiment = None
+
+        self._task = asyncio.create_task(execute(), name=f"experiment-{run_id}")
+        task = self._task
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            if self.current_run_id == run_id and self._task is task:
+                self.cancel()
+            await asyncio.shield(task)
+            raise
+
+    async def _run_single(
         self,
         controller_type: str,
         traffic_interval: float = 0.02,
@@ -31,22 +107,6 @@ class ExperimentRunner:
         repetitions: int = 1,
         run_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        if self.is_running:
-            raise OperationError(409, "An experiment is already in progress")
-
-        run_id = run_id or uuid.uuid4().hex
-        if controller_type == "comparison":
-            return await self.run_comparison(
-                traffic_interval=traffic_interval,
-                packet_count=packet_count,
-                failure_delay_sec=failure_delay_sec,
-                fail_src=fail_src,
-                fail_dst=fail_dst, run_id=run_id
-            )
-
-        self.is_running = True
-        self.current_run_id = run_id
-        self._cancel_flag = False
         exp_id = f"exp_{uuid.uuid4().hex}_{controller_type}"
 
         record: Dict[str, Any] = {
@@ -65,28 +125,31 @@ class ExperimentRunner:
         }
 
         self.current_experiment = record
-        save_event_log("INFO", "EXPERIMENT", f"Started experiment {exp_id} on {controller_type}")
-        await self._broadcast(run_id, {
-            "event_type": "EXPERIMENT_PROGRESS",
-            "experiment_id": exp_id,
-            "status": "PREPARING",
-            "progress_percent": 10,
-            "message": "Preparing network and controller..."
-        })
-
+        traffic_job_id = None
+        runtime_id = None
+        link_dirty = False
+        traffic_finalized = False
+        failure = None
         try:
+            save_event_log("INFO", "EXPERIMENT", f"Started experiment {exp_id} on {controller_type}")
+            await self._broadcast(run_id, {
+                "event_type": "EXPERIMENT_PROGRESS", "experiment_id": exp_id,
+                "status": "PREPARING", "progress_percent": 10,
+                "message": "Preparing network and controller..."
+            })
+            self._checkpoint()
             # Every run (including the same mode) starts with fresh Ryu memory
             # and the shared, checked dataplane boundary used by the dashboard.
-            await controller_manager.select_controller(controller_type, force_restart=True)
+            await self._step(controller_manager.select_controller(controller_type, force_restart=True))
             generation = controller_manager.generation
             if controller_manager.active_controller != controller_type or controller_manager.status != "READY":
                 raise OperationError(409, "Experiment controller activation was not confirmed")
-            await asyncio.sleep(1.0)
+            await self._sleep(1.0)
 
             # 2. Ensure Mininet simulation is running
             if mininet_client.simulation_state != "RUNNING":
-                await mininet_client.start_simulation()
-                await asyncio.sleep(1.5)
+                await self._step(mininet_client.start_simulation())
+                await self._sleep(1.5)
 
             runtime_id = mininet_client.runtime_id
             def check_context():
@@ -102,16 +165,14 @@ class ExperimentRunner:
             record["summary"].update(runtime_id=runtime_id, controller_generation=generation,
                                      experiment_id=exp_id, run_id=run_id)
 
-            # 3. Restore all links to baseline state
-            await self._broadcast(run_id, {
-                "event_type": "EXPERIMENT_PROGRESS",
-                "experiment_id": exp_id,
-                "status": "RESTORING_LINKS",
-                "progress_percent": 20,
-                "message": "Ensuring all physical links are UP..."
-            })
-            await mininet_client.set_link_status(fail_src, fail_dst, "up", experiment_id=exp_id)
-            await asyncio.sleep(1.0)
+            # Preserve unrelated/pre-existing failures; only fail an observed UP target.
+            topology = await self._step(mininet_client.get_topology())
+            target = next((link for link in topology.get("links", [])
+                           if {link.get("src"), link.get("dst")} == {fail_src, fail_dst}), None)
+            if target is None:
+                raise OperationError(404, "Experiment failure link was not found")
+            if target.get("status", "").upper() != "UP":
+                raise OperationError(409, "Experiment failure link must initially be UP")
 
             # 4. Warm-up ping to discover topology and prime flow tables
             await self._broadcast(run_id, {
@@ -121,8 +182,8 @@ class ExperimentRunner:
                 "progress_percent": 30,
                 "message": "Warming up network flows (pingall)..."
             })
-            await mininet_client.pingall()
-            await asyncio.sleep(1.0)
+            await self._step(mininet_client.pingall())
+            await self._sleep(1.0)
 
             # 5. Start high-frequency traffic
             await self._broadcast(run_id, {
@@ -134,20 +195,21 @@ class ExperimentRunner:
             })
             traffic_job_id = f"exp_traffic_{uuid.uuid4().hex}"
             check_context()
-            await mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id)
             record["summary"]["traffic_job_id"] = traffic_job_id
+            await self._step(mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id))
 
             # 6. Wait for failure delay
-            await asyncio.sleep(failure_delay_sec)
-            if self._cancel_flag:
-                raise asyncio.CancelledError("Experiment cancelled by user")
+            await self._sleep(failure_delay_sec)
 
             # 7. Inject Link Failure
             check_context()
             recovery_before_failure = controller_manager.last_recovery_event
             t_fail = time.time()
             record["failure_timestamp"] = t_fail
-            await mininet_client.set_link_status(fail_src, fail_dst, "down", experiment_id=exp_id)
+            # Retain intent even if a worker acknowledgement/topology broadcast fails.
+            link_dirty = True
+            await self._step(mininet_client.set_link_status(fail_src, fail_dst, "down", experiment_id=exp_id,
+                                                          expected_runtime=runtime_id))
             save_event_log("WARNING", "EXPERIMENT", f"Injecting failure: disconnecting {fail_src} <-> {fail_dst}")
             await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
@@ -163,17 +225,21 @@ class ExperimentRunner:
             final_stats = {}
             while time.time() - t_start_wait < expected_duration + 5.0:
                 check_context()
-                stats = await mininet_client.get_traffic_stats(traffic_job_id)
+                stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
                 if stats.get("status") == "not_found" or not stats.get("active", True):
                     final_stats = stats
                     break
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
             if not final_stats:
-                final_stats = await mininet_client.get_traffic_stats(traffic_job_id)
+                final_stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
+                if final_stats.get("active", True):
+                    raise OperationError(504, "Experiment traffic timed out")
 
             # Stop traffic explicitly if still active
             stopped_stats = await mininet_client.stop_traffic(traffic_job_id)
+            traffic_finalized = not stopped_stats.get("active", True) and stopped_stats.get("accounting_complete", False)
+            self._checkpoint()
             if "transmitted" in stopped_stats:
                 final_stats = stopped_stats
 
@@ -219,55 +285,52 @@ class ExperimentRunner:
                 "packets_received": record["packets_received"]
             }
 
-            # Restoration is part of the requested run. Confirm it before
-            # persisting/broadcasting successful completion.
-            await mininet_client.set_link_status(fail_src, fail_dst, "up", experiment_id=exp_id)
-
             check_context()
-
-            # Save to SQLite
-            save_experiment(record)
-            save_event_log("SUCCESS", "EXPERIMENT", f"Experiment {exp_id} completed successfully!", record["summary"])
-
-            await self._broadcast(run_id, {
-                "event_type": "EXPERIMENT_FINISHED",
-                "experiment": record,
-                "progress_percent": 100,
-                "message": "Experiment completed successfully"
-            })
-
-            return record
-
-        except asyncio.CancelledError:
+        except (ExperimentCancelled, asyncio.CancelledError):
             record["status"] = "CANCELLED"
-            record["end_time"] = datetime.datetime.now().isoformat()
-            save_experiment(record)
-            await self._broadcast(run_id, {
-                "event_type": "EXPERIMENT_PROGRESS",
-                "experiment_id": exp_id,
-                "status": "CANCELLED",
-                "message": "Experiment was cancelled"
-            })
-            return record
-        except Exception as e:
-            logger.error(f"Experiment {exp_id} failed: {e}")
+        except Exception as exc:
+            failure = exc
             record["status"] = "FAILED"
-            record["end_time"] = datetime.datetime.now().isoformat()
-            record["summary"]["error"] = public_error(e)
-            save_experiment(record)
-            save_event_log("ERROR", "EXPERIMENT", f"Experiment {exp_id} failed: {e}")
-            await self._broadcast(run_id, {
-                "event_type": "EXPERIMENT_FINISHED",
-                "experiment": record,
-                "error": public_error(e)
-            })
-            raise
+            record["summary"]["error"] = public_error(exc)
         finally:
+            cleanup_errors = []
+            if traffic_job_id and not traffic_finalized:
+                try:
+                    final = await mininet_client.stop_experiment_traffic(traffic_job_id, exp_id, runtime_id)
+                    if final is not None:
+                        record["summary"]["final_traffic"] = final
+                except Exception as exc:
+                    cleanup_errors.append("Traffic cleanup: " + public_error(exc))
+            if link_dirty:
+                try:
+                    await mininet_client.set_link_status(fail_src, fail_dst, "up", experiment_id=exp_id,
+                                                         expected_runtime=runtime_id)
+                except Exception as exc:
+                    cleanup_errors.append("Link cleanup: " + public_error(exc))
             if mininet_client.experiment_id == exp_id:
                 mininet_client.experiment_id = None
-            self.is_running = False
-            self.current_run_id = None
-            self.current_experiment = None
+            if cleanup_errors:
+                record["status"] = "FAILED"
+                record["summary"]["cleanup_errors"] = cleanup_errors
+                failure = OperationError(502, "Experiment cleanup failed", results=cleanup_errors)
+            elif self._cancel_flag and failure is None:
+                record["status"] = "CANCELLED"
+            elif record["status"] == "COMPLETED":
+                try:
+                    check_context()
+                except Exception as exc:
+                    failure = exc
+                    record["status"] = "FAILED"
+                    record["summary"]["error"] = public_error(exc)
+            record["end_time"] = datetime.datetime.now().isoformat()
+            save_experiment(record)
+            save_event_log("SUCCESS" if record["status"] == "COMPLETED" else "WARNING", "EXPERIMENT",
+                           f"Experiment {exp_id}: {record['status']}", record["summary"])
+            await self._broadcast(run_id, {"event_type": "EXPERIMENT_FINISHED", "experiment": record,
+                                          "error": public_error(failure) if failure else None})
+        if failure:
+            raise failure
+        return record
 
     async def run_comparison(
         self,
@@ -293,26 +356,34 @@ class ExperimentRunner:
                 "stage": f"Running {ctrl} ({idx+1}/3)",
                 "progress_percent": int((idx / 3.0) * 100)
             })
-            res = await self.run_experiment(
+            res = await self._run_single(
                 controller_type=ctrl,
                 traffic_interval=traffic_interval,
                 packet_count=packet_count,
                 failure_delay_sec=failure_delay_sec,
                 fail_src=fail_src,
-                fail_dst=fail_dst
+                fail_dst=fail_dst, run_id=uuid.uuid4().hex
             )
             results.append(res)
+            if res["status"] != "COMPLETED":
+                break
             # Brief cooldown between controller runs
-            await asyncio.sleep(2.0)
+            if idx < len(controllers) - 1:
+                try:
+                    await self._sleep(2.0)
+                except ExperimentCancelled:
+                    break
 
         comparison_summary = {
             "id": comparison_id,
             "type": "COMPARISON",
+            "status": "CANCELLED" if self._cancel_flag else "COMPLETED",
+            "run_id": run_id,
             "results": results,
             "timestamp": datetime.datetime.now().isoformat()
         }
 
-        save_event_log("SUCCESS", "EXPERIMENT", f"Automated comparison {comparison_id} complete!")
+        save_event_log("INFO", "EXPERIMENT", f"Automated comparison {comparison_id}: {comparison_summary['status']}")
         await self._broadcast(run_id, {
             "event_type": "COMPARISON_FINISHED",
             "comparison": comparison_summary
@@ -320,10 +391,32 @@ class ExperimentRunner:
         return comparison_summary
 
     async def _broadcast(self, run_id, message):
+        if self._comparison:
+            if message.get("event_type") == "EXPERIMENT_FINISHED":
+                return  # child finalization does not finish the parent workflow
+            run_id = self.current_run_id
         await ws_manager.broadcast({**message, "run_id": run_id})
 
     def cancel(self):
         if self.is_running:
             self._cancel_flag = True
+            self._cancel_event.set()
+
+    async def cancel_and_wait(self, run_id=None):
+        target = run_id or self.current_run_id
+        if target in self._terminal:
+            result = self._terminal[target]
+            if isinstance(result, Exception):
+                raise result
+            return result
+        if not self.is_running or target != self.current_run_id:
+            raise OperationError(404, "Active experiment was not found")
+        task = self._task
+        self.cancel()
+        return await asyncio.shield(task)
+
+    async def shutdown(self):
+        if self.is_running:
+            await self.cancel_and_wait(self.current_run_id)
 
 experiment_runner = ExperimentRunner()

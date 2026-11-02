@@ -20,9 +20,10 @@ from backend.services.operation_error import OperationError
 
 async def request(app, path, body=None, method="POST"):
     messages = []
+    path, _, query = path.partition("?")
     scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
              "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
-             "query_string": b"", "root_path": "", "headers": [(b"content-type", b"application/json")],
+             "query_string": query.encode(), "root_path": "", "headers": [(b"content-type", b"application/json")],
              "server": ("test", 80), "client": ("test", 1)}
     receive = AsyncMock(return_value={"type": "http.request", "body": json.dumps(body or {}).encode()})
 
@@ -69,8 +70,8 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
         self.command = self.payload["command"]
 
     async def read(self):
-        if self.command == "get_topology":
-            return b'{"status":"ok","nodes":[],"links":[]}'
+        if self.command == "get_topology" and isinstance(self.reply, dict) and self.reply.get("status") != "error":
+            return b'{"status":"ok","nodes":[],"links":[{"src":"s1","dst":"s2","status":"UP"}]}'
         if isinstance(self.reply, bytes):
             return self.reply
         reply = dict(self.reply)
@@ -78,7 +79,7 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
             owner = self.client._traffic_owners.get(self.payload["job_id"], self.payload)
             reply.update({key: owner.get(key) for key in ("job_id", "runtime_id", "experiment_id", "controller_generation")})
             if self.command == "stop_traffic":
-                reply.update(transmitted=1, received=1, loss_percent=0, accounting_complete=True)
+                reply.update(active=False, transmitted=1, received=1, loss_percent=0, accounting_complete=True)
         return json.dumps(reply).encode()
 
     async def post(self, path, data=None):
@@ -253,7 +254,7 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
             self.reply = {"status": "ok"}
             if payload["command"] == "set_link_status" and payload["status"] == "up":
                 ups += 1
-                if ups == 2:
+                if ups == 1:
                     self.reply = {"status": "error", "message": "Final restoration failed"}
             elif payload["command"] == "get_traffic_stats":
                 self.reply = {"active": False, "transmitted": 1, "received": 1, "loss_percent": 0}
@@ -264,7 +265,7 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(er.asyncio, "sleep", new_callable=AsyncMock):
             status, _ = await self.post("/api/experiments/run")
         self.assertEqual(status, 502)
-        self.assertEqual(ups, 2)
+        self.assertEqual(ups, 1)
         self.assertEqual(save.call_args.args[0]["status"], "FAILED")
         finished = [c.args[0] for c in self.broadcast.await_args_list if c.args[0].get("event_type") == "EXPERIMENT_FINISHED"]
         self.assertEqual(len(finished), 1)

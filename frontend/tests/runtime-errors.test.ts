@@ -120,6 +120,6 @@ test('failed experiment ends pending state and preserves the backend error', asy
   reject('Restoration failed', 502);
   await assert.rejects(useSDNStore.getState().runExperiment({ controller: 'reactive' }), /Restoration failed/);
   assert.equal(useSDNStore.getState().experimentRunning, false);
-  assert.equal(useSDNStore.getState().experimentProgress, null);
+  assert.equal(useSDNStore.getState().experimentProgress?.status, 'FAILED');
   assert.equal(useSDNStore.getState().error, 'Restoration failed');
 });

@@ -393,7 +393,16 @@ class MininetWorker:
             deadline = time.monotonic() + 1.0
             while proc.poll() is None and not self._ping_handler_ready(proc, signal.SIGINT):
                 if time.monotonic() >= deadline:
-                    raise OperationError(502, "Ping stop handler was not ready; traffic stop unconfirmed")
+                    # Cancellation must not abandon a still-running owned ping.
+                    # If SIGINT is unavailable, terminate it; missing final
+                    # accounting below remains an error, never invented totals.
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=1.0)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=1.0)
+                    break
                 time.sleep(0.01)
             if proc.poll() is None:
                 proc.send_signal(signal.SIGINT)

@@ -63,7 +63,7 @@ class OwnershipFixture(unittest.IsolatedAsyncioTestCase):
                 job.update(active=False, accounting_complete=True)
             return {"status": "ok", "traffic_stats": copy.deepcopy(list(self.jobs.values()))}
         if command == "get_topology":
-            return {"status": "ok", "nodes": [], "links": []}
+            return {"status": "ok", "nodes": [], "links": [{"src": "s1", "dst": "s2", "status": "UP"}]}
         return {"status": "ok"}
 
 class OwnershipTests(OwnershipFixture):
