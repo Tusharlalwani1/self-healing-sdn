@@ -40,16 +40,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
 
   // Convert store nodes to ReactFlow nodes
   const nodes: Node[] = useMemo(() => {
-    const rawNodes = topology.nodes.length
-      ? topology.nodes
-      : [
-          { id: 'h1', name: 'h1', type: 'host', ip: '10.0.0.1', mac: '00:00:00:00:00:01', ports: {} },
-          { id: 's1', name: 's1', type: 'switch', dpid: 1, mac: '', ports: {} },
-          { id: 's2', name: 's2', type: 'switch', dpid: 2, mac: '', ports: {} },
-          { id: 's3', name: 's3', type: 'switch', dpid: 3, mac: '', ports: {} },
-          { id: 's4', name: 's4', type: 'switch', dpid: 4, mac: '', ports: {} },
-          { id: 'h2', name: 'h2', type: 'host', ip: '10.0.0.2', mac: '00:00:00:00:00:02', ports: {} },
-        ];
+    const rawNodes = topology.nodes;
 
     return rawNodes.map((n) => {
       const pos = positions[n.name] || { x: 300, y: 250 };
@@ -72,16 +63,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
 
   // Convert store links to ReactFlow edges with dynamic active-path & failure highlighting
   const edges: Edge[] = useMemo(() => {
-    // Standard diamond links
-    const defaultPairs = [
-      { id: 'h1-s1', src: 'h1', dst: 's1' },
-      { id: 's1-s2', src: 's1', dst: 's2' },
-      { id: 's1-s3', src: 's1', dst: 's3' },
-      { id: 's2-s4', src: 's2', dst: 's4' },
-      { id: 's3-s4', src: 's3', dst: 's4' },
-      { id: 's4-h2', src: 's4', dst: 'h2' },
-    ];
-
     const activePaths = topology.active_paths || [];
     const isPairInActivePath = (a: string, b: string) => {
       for (const p of activePaths) {
@@ -94,13 +75,8 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
       return false;
     };
 
-    return defaultPairs.map((pair) => {
-      // Find actual status from backend topology
-      const linkMatch = topology.links.find(
-        (l) =>
-          (l.src === pair.src && l.dst === pair.dst) ||
-          (l.src === pair.dst && l.dst === pair.src)
-      );
+    return topology.links.map((pair) => {
+      const linkMatch = pair;
 
       const isDown = linkMatch ? linkMatch.status === 'DOWN' : false;
       const isActive = !isDown && (isPairInActivePath(pair.src, pair.dst) || pair.src.startsWith('h') || pair.dst.startsWith('h'));
@@ -159,29 +135,14 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
         nodeTypes={nodeTypes}
         fitView
         onNodeClick={(_, node) => {
-          const match = topology.nodes.find((n) => n.name === node.id) || {
-            id: node.id,
-            name: node.id,
-            type: node.id.startsWith('h') ? 'host' : 'switch',
-            ports: {},
-          };
+          const match = topology.nodes.find((n) => n.name === node.id);
+          if (!match) return;
           selectNode(match as any);
           onSelectNode?.(match as any);
         }}
         onEdgeClick={(_, edge) => {
-          const [src, dst] = edge.id.split('-');
-          const match = topology.links.find(
-            (l) => (l.src === src && l.dst === dst) || (l.src === dst && l.dst === src)
-          ) || {
-            id: edge.id,
-            src,
-            dst,
-            src_intf: `${src}-eth1`,
-            dst_intf: `${dst}-eth1`,
-            status: edge.style?.stroke === '#ef4444' ? 'DOWN' : 'UP',
-            bw: 10,
-            delay: '5ms',
-          };
+          const match = topology.links.find((link) => link.id === edge.id);
+          if (!match) return;
           selectLink(match as any);
           onSelectLink?.(match as any);
         }}

@@ -40,8 +40,8 @@ export interface TopologyLink {
   src_port?: number;
   dst_port?: number;
   status: 'UP' | 'DOWN';
-  bw: number;
-  delay: string;
+  bw?: number | null;
+  delay?: string | null;
   last_changed?: number;
 }
 
@@ -92,16 +92,16 @@ export interface ExperimentRecord {
   start_time: string;
   end_time?: string;
   status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-  packets_transmitted: number;
-  packets_received: number;
-  packet_loss_percent: number;
-  avg_rtt_ms?: number;
-  min_rtt_ms?: number;
-  max_rtt_ms?: number;
+  packets_transmitted: number | null;
+  packets_received: number | null;
+  packet_loss_percent: number | null;
+  avg_rtt_ms?: number | null;
+  min_rtt_ms?: number | null;
+  max_rtt_ms?: number | null;
   failure_link: string;
   failure_timestamp?: number;
   recovery_event?: string;
-  recovery_duration_ms?: number;
+  recovery_duration_ms?: number | null;
   summary: Record<string, any>;
 }
 

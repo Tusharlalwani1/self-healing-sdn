@@ -37,7 +37,7 @@ export const SwitchNode: React.FC<SwitchNodeProps> = ({ data }) => {
       </div>
 
       <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-400">
-        <span className="font-medium text-emerald-400">OVS 1.3</span>
+        <span className="font-medium text-emerald-400">OpenFlow 1.3</span>
         <span>{Object.keys(data.ports || {}).length} ports</span>
       </div>
     </div>

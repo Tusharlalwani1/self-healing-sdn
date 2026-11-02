@@ -51,11 +51,12 @@ class ReactiveController(app_manager.RyuApp):
 
     @set_ev_cls(event.EventLinkDelete)
     def link_delete(self, ev):
+        started = time.perf_counter()
         t0 = time.time()
         a, b = ev.link.src.dpid, ev.link.dst.dpid
         self.logger.warning("LINK DOWN s%s <-> s%s at t=%.3f", a, b, t0)
         self._rebuild()
-        self._heal(a, b, t0)
+        self._heal(a, b, started)
 
     def _rebuild(self):
         self.graph.clear()
@@ -97,7 +98,7 @@ class ReactiveController(app_manager.RyuApp):
                 self.logger.warning(
                     "HEALED dst=%s old=%s new=%s in %.1f ms", dst_mac,
                     ["s%s" % d for d in old], ["s%s" % d for d in new],
-                    (time.time() - t0) * 1000)
+                    (time.perf_counter() - t0) * 1000)
 
     def _delete_path_flows(self, path, dst_mac):
         for dpid in path:

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
 import { api } from '../services/api';
+import { formatMetric } from '../services/metrics';
 
 export const ExperimentLabView: React.FC = () => {
   const {
@@ -103,9 +104,9 @@ export const ExperimentLabView: React.FC = () => {
                 disabled={experimentRunning}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none font-mono"
               >
-                <option value="s1-s2">s1 ↔ s2 (Primary Active Route)</option>
-                <option value="s2-s4">s2 ↔ s4 (Primary Lower Segment)</option>
-                <option value="s1-s3">s1 ↔ s3 (Backup Route)</option>
+                <option value="s1-s2">s1 ↔ s2 (Branch via s2)</option>
+                <option value="s2-s4">s2 ↔ s4 (Branch via s2)</option>
+                <option value="s1-s3">s1 ↔ s3 (Branch via s3)</option>
               </select>
             </div>
 
@@ -200,12 +201,13 @@ export const ExperimentLabView: React.FC = () => {
                 <div>
                   <div className="flex justify-between text-xs font-mono text-slate-300 mb-1.5">
                     <span>{experimentProgress?.status || 'RUNNING'}</span>
-                    <span className="font-bold text-blue-400">{experimentProgress?.progress_percent || 0}%</span>
+                    <span className="font-bold text-blue-400">Stage {experimentProgress?.progress_percent ?? 0}%</span>
                   </div>
                   <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
                     <div
                       className="bg-gradient-to-r from-blue-500 to-cyan-400 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${experimentProgress?.progress_percent || 5}%` }}
+                      title="Workflow milestone; not elapsed-time or packet completion percentage"
+                      style={{ width: `${experimentProgress?.progress_percent ?? 0}%` }}
                     />
                   </div>
                 </div>
@@ -249,7 +251,7 @@ export const ExperimentLabView: React.FC = () => {
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Tx / Rx</th>
                 <th className="py-3 px-4">Packet Loss</th>
-                <th className="py-3 px-4">Recovery Time</th>
+                <th className="py-3 px-4">Controller Processing</th>
                 <th className="py-3 px-4">Avg RTT</th>
                 <th className="py-3 px-4 text-right">Reports</th>
               </tr>
@@ -266,17 +268,17 @@ export const ExperimentLabView: React.FC = () => {
                       {exp.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4">{exp.packets_transmitted} / {exp.packets_received}</td>
+                  <td className="py-3 px-4">{formatMetric(exp.packets_transmitted)} / {formatMetric(exp.packets_received)}</td>
                   <td className="py-3 px-4">
-                    <span className={`font-bold ${exp.packet_loss_percent > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                      {exp.packet_loss_percent}%
+                    <span className={`font-bold ${(exp.packet_loss_percent ?? 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {formatMetric(exp.packet_loss_percent, '%')}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-purple-400 font-bold">
-                    {exp.recovery_duration_ms ? `${exp.recovery_duration_ms.toFixed(1)} ms` : 'None'}
+                    {formatMetric(exp.recovery_duration_ms, ' ms', 1)}
                   </td>
                   <td className="py-3 px-4 text-cyan-400">
-                    {exp.avg_rtt_ms ? `${exp.avg_rtt_ms.toFixed(2)} ms` : '-'}
+                    {formatMetric(exp.avg_rtt_ms, ' ms', 2)}
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">
                     <a

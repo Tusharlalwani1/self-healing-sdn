@@ -65,9 +65,9 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
             </div>
 
             <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase font-semibold">Bandwidth / Delay</div>
+              <div className="text-[10px] text-slate-500 uppercase font-semibold">Configured Bandwidth / Delay</div>
               <div className="text-sm font-bold text-slate-200 mt-1 font-mono">
-                {link.bw || 10} Mbps / {link.delay || '5ms'}
+                {link.bw != null ? `${link.bw} Mbps` : 'N/A'} / {link.delay ?? 'N/A'}
               </div>
             </div>
           </div>

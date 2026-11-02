@@ -65,14 +65,15 @@ class FastFailoverController(app_manager.RyuApp):
 
     @set_ev_cls(event.EventLinkDelete)
     def link_delete(self, ev):
+        started = time.perf_counter()
         t0 = time.time()
         a, b = ev.link.src.dpid, ev.link.dst.dpid
         self.logger.warning("LINK DOWN s%s <-> s%s at t=%.3f", a, b, t0)
         self._rebuild()
         self._install_all_routes()
-        self.logger.warning("ROUTES RECOMPUTED in %.1f ms (switches had "
-                            "already failed over locally)",
-                            (time.time() - t0) * 1000)
+        self.logger.warning("ROUTES RECOMPUTED in %.1f ms (local failover "
+                            "timing not measured)",
+                            (time.perf_counter() - started) * 1000)
 
     def _rebuild(self):
         self.graph.clear()

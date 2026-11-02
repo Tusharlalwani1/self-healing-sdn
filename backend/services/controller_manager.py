@@ -64,7 +64,7 @@ class ControllerManager:
             {
                 "id": "fast_failover",
                 "name": "Fast Failover (OpenFlow 1.3 Group Table)",
-                "description": "Installs pre-configured primary & backup buckets into switch group tables. Data plane switches locally with sub-millisecond failover.",
+                "description": "Installs primary and backup buckets for local datapath failover. Local switching time is not measured; logged timing covers controller recomputation.",
                 "features": ["OpenFlow 1.3 Group Tables", "OFPGT_FF (Fast Failover)", "Local Datapath Failover", "Global Route Reconciliation"],
                 "status": self.status if self.active_controller == "fast_failover" else "STOPPED",
                 "is_active": self.active_controller == "fast_failover",
@@ -386,7 +386,7 @@ class ControllerManager:
         elif ev_type == "HEALED":
             self.last_recovery_event = event
             self.active_paths = [event["new_path"]]
-            save_event_log("SUCCESS", "CONTROLLER", f"Reactive healing complete in {event['duration_ms']:.1f}ms: {' -> '.join(event['old_path'])} to {' -> '.join(event['new_path'])}", event)
+            save_event_log("SUCCESS", "CONTROLLER", f"Reactive controller processing {event['duration_ms']:.1f}ms: {' -> '.join(event['old_path'])} to {' -> '.join(event['new_path'])}", event)
             await ws_manager.broadcast({
                 "event_type": "HEALED",
                 "old_path": event["old_path"],
@@ -396,7 +396,7 @@ class ControllerManager:
             })
         elif ev_type == "ROUTE_RECOMPUTED":
             self.last_recovery_event = event
-            save_event_log("SUCCESS", "CONTROLLER", f"Fast Failover route recomputed in {event['duration_ms']:.1f}ms (switches failed over locally)", event)
+            save_event_log("SUCCESS", "CONTROLLER", f"Fast Failover controller recomputation {event['duration_ms']:.1f}ms; local switching time not measured", event)
             await ws_manager.broadcast({
                 "event_type": "ROUTE_RECOMPUTED",
                 "duration_ms": event["duration_ms"],

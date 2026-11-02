@@ -52,7 +52,7 @@ export const SettingsView: React.FC = () => {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Host OS & WSL</span>
             <Shield className="w-4 h-4 text-blue-400" />
           </div>
-          <div className="text-lg font-bold text-white font-mono">{systemStatus?.os || 'Linux / WSL2'}</div>
+          <div className="text-lg font-bold text-white font-mono">{systemStatus?.os ?? 'N/A'}</div>
           <p className="text-xs text-slate-400">Windows Subsystem for Linux (WSL2 Ubuntu 22.04 LTS)</p>
         </div>
 
@@ -61,7 +61,7 @@ export const SettingsView: React.FC = () => {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Python Runtime</span>
             <Terminal className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-lg font-bold text-cyan-400 font-mono">{systemStatus?.python_version || '3.10.12'}</div>
+          <div className="text-lg font-bold text-cyan-400 font-mono">{systemStatus?.python_version ?? 'N/A'}</div>
           <p className="text-xs text-slate-400">sdn-env virtualenv (Ryu 4.34 + NetworkX)</p>
         </div>
 
@@ -70,9 +70,9 @@ export const SettingsView: React.FC = () => {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">OpenFlow 1.3 Port</span>
             <div className={`w-2.5 h-2.5 rounded-full ${systemStatus?.openflow_port_active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
           </div>
-          <div className="text-lg font-bold text-white font-mono">Port {systemStatus?.controller_port || 6653}</div>
+          <div className="text-lg font-bold text-white font-mono">Port {systemStatus?.controller_port ?? 'N/A'}</div>
           <p className="text-xs text-slate-400">
-            {systemStatus?.openflow_port_active ? 'Active Ryu listener connected' : 'Port available'}
+            {!systemStatus ? 'Not checked' : systemStatus.openflow_port_active ? 'TCP listener detected; identity not verified here' : 'No TCP listener detected'}
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
           <div className="text-lg font-bold text-white font-mono">
-            {systemStatus?.mininet_available ? 'INSTALLED (/usr/bin/mn)' : 'NOT DETECTED'}
+            {!systemStatus ? 'N/A' : systemStatus.mininet_available ? 'mn COMMAND AVAILABLE' : 'NOT DETECTED'}
           </div>
           <p className="text-xs text-slate-400">Network namespaces and virtual ethernet switches</p>
         </div>
@@ -101,7 +101,7 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
           <div className="text-lg font-bold text-white font-mono">
-            {systemStatus?.ovs_service_running ? 'SERVICE RUNNING' : 'STOPPED'}
+            {!systemStatus ? 'N/A' : systemStatus.ovs_service_running ? 'OVSDB REACHABLE' : 'OVSDB CHECK FAILED'}
           </div>
           <p className="text-xs text-slate-400">ovs-vswitchd & ovsdb-server datapath</p>
         </div>

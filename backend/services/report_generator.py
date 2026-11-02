@@ -2,11 +2,22 @@ import csv
 import io
 import json
 from typing import Dict, Any, List
+from backend.services.metrics import experiment_metrics, TIMING_SCOPE
+
+
+def export_record(record):
+    return {**experiment_metrics(record), "metric_semantics": {"recovery_duration_ms": TIMING_SCOPE,
+            "packet_level_outage": "Not measured", "local_ff_switching_time": "Not measured"}}
+
+
+def display(value, unit=""):
+    return "N/A" if value is None else f"{value}{unit}"
 
 class ReportGenerator:
     @staticmethod
     def generate_json(experiment: Dict[str, Any]) -> str:
-        return json.dumps(experiment, indent=2)
+        records = [export_record(record) for record in experiment] if isinstance(experiment, list) else export_record(experiment)
+        return json.dumps(records, indent=2)
 
     @staticmethod
     def generate_csv(experiments: List[Dict[str, Any]]) -> str:
@@ -15,18 +26,22 @@ class ReportGenerator:
             "id", "controller", "status", "start_time", "end_time",
             "packets_transmitted", "packets_received", "packet_loss_percent",
             "avg_rtt_ms", "min_rtt_ms", "max_rtt_ms", "failure_link",
-            "recovery_event", "recovery_duration_ms"
+            "recovery_event", "controller_processing_ms", "timing_scope"
         ]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for exp in experiments:
-            writer.writerow(exp)
+            row = experiment_metrics(exp)
+            row["controller_processing_ms"] = row.get("recovery_duration_ms")
+            row["timing_scope"] = TIMING_SCOPE
+            writer.writerow({key: "N/A" if row.get(key) is None else row[key] for key in fieldnames})
         return output.getvalue()
 
     @staticmethod
     def generate_html_report(experiment: Dict[str, Any]) -> str:
+        experiment = experiment_metrics(experiment)
         ctrl = experiment.get("controller", "Unknown").upper()
-        loss = experiment.get("packet_loss_percent", 0.0)
+        loss = experiment.get("packet_loss_percent")
         rec_ms = experiment.get("recovery_duration_ms")
         rec_str = f"{rec_ms:.1f} ms" if rec_ms is not None else "N/A"
         avg_rtt = experiment.get("avg_rtt_ms")
@@ -62,15 +77,15 @@ class ReportGenerator:
 
     <div class="grid">
         <div class="card">
-            <div class="card-label">Active Controller</div>
+            <div class="card-label">Experiment Controller</div>
             <div class="card-val">{ctrl}</div>
         </div>
         <div class="card">
             <div class="card-label">Packet Loss</div>
-            <div class="card-val {'danger' if loss > 5 else 'success'}">{loss}%</div>
+            <div class="card-val {'danger' if loss is not None and loss > 5 else 'success'}">{display(loss, '%')}</div>
         </div>
         <div class="card">
-            <div class="card-label">Recovery Duration</div>
+            <div class="card-label">Controller Processing / Recomputation</div>
             <div class="card-val">{rec_str}</div>
         </div>
         <div class="card">
@@ -80,15 +95,16 @@ class ReportGenerator:
     </div>
 
     <h2>Detailed Telemetry Metrics</h2>
+    <p>{TIMING_SCOPE}. Packet-level outage and local FF switching time: not measured.</p>
     <table>
         <tr><th>Parameter</th><th>Value</th></tr>
         <tr><td>Controller Architecture</td><td>{ctrl}</td></tr>
         <tr><td>Execution Status</td><td>{experiment.get('status')}</td></tr>
-        <tr><td>Packets Transmitted</td><td>{experiment.get('packets_transmitted')}</td></tr>
-        <tr><td>Packets Received</td><td>{experiment.get('packets_received')}</td></tr>
+        <tr><td>Packets Transmitted</td><td>{display(experiment.get('packets_transmitted'))}</td></tr>
+        <tr><td>Packets Received</td><td>{display(experiment.get('packets_received'))}</td></tr>
         <tr><td>Simulated Link Failure</td><td>{experiment.get('failure_link')}</td></tr>
-        <tr><td>Failure Recovery Event</td><td>{experiment.get('recovery_event') or 'None'}</td></tr>
-        <tr><td>Min / Avg / Max RTT</td><td>{experiment.get('min_rtt_ms')} / {avg_rtt_str} / {experiment.get('max_rtt_ms')} ms</td></tr>
+        <tr><td>Controller Processing Event</td><td>{experiment.get('recovery_event') or 'N/A'}</td></tr>
+        <tr><td>Min / Avg / Max RTT</td><td>{display(experiment.get('min_rtt_ms'), ' ms')} / {avg_rtt_str} / {display(experiment.get('max_rtt_ms'), ' ms')}</td></tr>
     </table>
 
     <div class="footer">

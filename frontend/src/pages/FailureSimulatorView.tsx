@@ -6,10 +6,10 @@ export const FailureSimulatorView: React.FC = () => {
   const { topology, setLinkStatus, restoreAllLinks, simulationState, events } = useSDNStore();
 
   const allLinks = [
-    { src: 's1', dst: 's2', label: 'Primary Path Link (s1 ↔ s2)', desc: 'Standard forwarding path for h1 → h2' },
-    { src: 's2', dst: 's4', label: 'Primary Path Link (s2 ↔ s4)', desc: 'Lower segment of primary route' },
-    { src: 's1', dst: 's3', label: 'Backup Path Link (s1 ↔ s3)', desc: 'Alternative route via switch s3' },
-    { src: 's3', dst: 's4', label: 'Backup Path Link (s3 ↔ s4)', desc: 'Lower segment of alternative route' },
+    { src: 's1', dst: 's2', label: 'Diamond Link (s1 ↔ s2)', desc: 'Branch via switch s2; check reported path for current use' },
+    { src: 's2', dst: 's4', label: 'Diamond Link (s2 ↔ s4)', desc: 'Branch via switch s2' },
+    { src: 's1', dst: 's3', label: 'Diamond Link (s1 ↔ s3)', desc: 'Branch via switch s3; check reported path for current use' },
+    { src: 's3', dst: 's4', label: 'Diamond Link (s3 ↔ s4)', desc: 'Branch via switch s3' },
     { src: 'h1', dst: 's1', label: 'Edge Access Link (h1 ↔ s1)', desc: 'Host 1 edge connection' },
     { src: 'h2', dst: 's4', label: 'Edge Access Link (h2 ↔ s4)', desc: 'Host 2 edge connection' },
   ];
@@ -52,14 +52,14 @@ export const FailureSimulatorView: React.FC = () => {
             disabled={simulationState !== 'RUNNING'}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition disabled:opacity-50"
           >
-            Fail Primary Link (s1 ↔ s2)
+            Fail Link (s1 ↔ s2)
           </button>
           <button
             onClick={() => handleSimulateScenario('backup').catch(console.error)}
             disabled={simulationState !== 'RUNNING'}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition disabled:opacity-50"
           >
-            Fail Backup Link (s1 ↔ s3)
+            Fail Link (s1 ↔ s3)
           </button>
           <button
             onClick={() => handleSimulateScenario('restore').catch(console.error)}
@@ -78,7 +78,7 @@ export const FailureSimulatorView: React.FC = () => {
           const match = topology.links.find(
             (l) => (l.src === item.src && l.dst === item.dst) || (l.src === item.dst && l.dst === item.src)
           );
-          const isUp = match ? match.status === 'UP' : true;
+          const isUp = match?.status === 'UP';
 
           return (
             <div
@@ -93,9 +93,9 @@ export const FailureSimulatorView: React.FC = () => {
                     isUp ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse'
                   }`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${isUp ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                    {isUp ? 'LINK OPERATIONAL' : 'LINK DOWN'}
+                    {!match ? 'NOT REPORTED' : isUp ? 'LINK UP' : 'LINK DOWN'}
                   </span>
-                  <span className="text-xs font-mono text-slate-500">10 Mbps / 5ms</span>
+                  <span className="text-xs font-mono text-slate-500">Config: {match?.bw != null ? `${match.bw} Mbps` : 'N/A'} / {match?.delay ?? 'N/A'}</span>
                 </div>
 
                 <div>
@@ -111,7 +111,7 @@ export const FailureSimulatorView: React.FC = () => {
                 {isUp ? (
                   <button
                     onClick={() => setLinkStatus(item.src, item.dst, 'down').catch(console.error)}
-                    disabled={simulationState !== 'RUNNING'}
+                    disabled={!match || simulationState !== 'RUNNING'}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ZapOff className="w-3.5 h-3.5" />
@@ -120,7 +120,7 @@ export const FailureSimulatorView: React.FC = () => {
                 ) : (
                   <button
                     onClick={() => setLinkStatus(item.src, item.dst, 'up').catch(console.error)}
-                    disabled={simulationState !== 'RUNNING'}
+                    disabled={!match || simulationState !== 'RUNNING'}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />

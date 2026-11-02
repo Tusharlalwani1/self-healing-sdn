@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { formatMetric, ovsEntryCount } from '../../services/metrics';
 import { X, Network, Layers, RefreshCw, Cpu, Activity } from 'lucide-react';
 import { api } from '../../services/api';
 import { TopologyNode } from '../../types';
@@ -9,7 +10,7 @@ interface SwitchInspectorModalProps {
 }
 
 export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node, onClose }) => {
-  const [details, setDetails] = useState<{
+  const [storedDetails, setDetails] = useState<{
     dpid: number;
     switch: string;
     flows: string[];
@@ -18,23 +19,28 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'flows' | 'groups' | 'ports'>('flows');
   const [loading, setLoading] = useState(false);
+  const requestVersion = useRef(0);
+  const details = storedDetails?.switch === node?.name ? storedDetails : null;
 
   const fetchDetails = async () => {
     if (!node || node.type !== 'switch') return;
+    const version = ++requestVersion.current;
+    setDetails(null);
     setLoading(true);
     try {
       const dpid = node.dpid || parseInt(node.name.replace('s', ''));
       const res = await api.getSwitchDetails(dpid);
-      setDetails(res);
+      if (requestVersion.current === version) setDetails(res);
     } catch (e) {
       console.error('Failed to get switch info', e);
     } finally {
-      setLoading(false);
+      if (requestVersion.current === version) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDetails();
+    return () => { ++requestVersion.current; };
   }, [node]);
 
   if (!node || node.type !== 'switch') return null;
@@ -84,7 +90,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Flow Table ({details?.flows.length || 0})</span>
+            <span>Flow Table ({formatMetric(ovsEntryCount(details?.flows, 'flows'))})</span>
           </button>
           <button
             onClick={() => setActiveTab('groups')}
@@ -95,7 +101,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             }`}
           >
             <Cpu className="w-4 h-4" />
-            <span>Group Table (FF) ({details?.groups.length || 0})</span>
+            <span>Group Table ({formatMetric(ovsEntryCount(details?.groups, 'groups'))})</span>
           </button>
           <button
             onClick={() => setActiveTab('ports')}

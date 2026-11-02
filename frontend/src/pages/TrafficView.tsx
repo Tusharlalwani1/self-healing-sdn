@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Radio, Play, Square, Gauge, Activity, Clock, BarChart2 } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
+import { formatMetric } from '../services/metrics';
 import {
   LineChart,
   Line,
@@ -145,7 +146,7 @@ export const TrafficView: React.FC = () => {
           <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Packet Loss</span>
             <div className={`text-2xl font-bold font-mono mt-2 ${trafficStats.loss_percent > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {trafficStats.loss_percent}%
+              {trafficStats.transmitted > 0 ? formatMetric(trafficStats.loss_percent, '%') : 'N/A'}
             </div>
             <span className="text-[10px] text-slate-500">unanswered / sent</span>
           </div>
@@ -168,8 +169,8 @@ export const TrafficView: React.FC = () => {
               <span className="text-slate-200 font-bold">{trafficStats.max_rtt != null ? `${trafficStats.max_rtt}ms` : 'N/A'}</span>
             </div>
             <div>
-              <span className="text-slate-500 mr-2">Last Sequence:</span>
-              <span className="text-cyan-400 font-bold">#{trafficStats.history?.length ? trafficStats.history[trafficStats.history.length - 1].seq : 0}</span>
+              <span className="text-slate-500 mr-2">Last Timed Reply Sequence:</span>
+              <span className="text-cyan-400 font-bold">{trafficStats.history?.length ? `#${trafficStats.history[trafficStats.history.length - 1].seq}` : 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -180,7 +181,7 @@ export const TrafficView: React.FC = () => {
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-blue-400" />
-            Live Packet Round-Trip Latency (ms)
+            Traffic Job Round-Trip Latency (ms)
           </h2>
           <span className="text-xs text-slate-400 font-mono">
             {trafficStats.active && simulationState === 'RUNNING' ? '● LIVE TELEMETRY' : !trafficStats.job_id ? 'NO ACTIVE TRAFFIC' : trafficStats.accounting_complete === false ? 'FINAL COUNTERS UNCONFIRMED' : 'FINAL / IDLE'}

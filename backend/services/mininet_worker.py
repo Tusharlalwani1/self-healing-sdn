@@ -173,8 +173,8 @@ class MininetWorker:
                 "src_port": port1,
                 "dst_port": port2,
                 "status": "UP" if is_up else "DOWN",
-                "bw": 10.0,
-                "delay": "5ms"
+                "bw": getattr(intf1, "params", {}).get("bw"),
+                "delay": getattr(intf1, "params", {}).get("delay")
             })
 
         return {
@@ -321,6 +321,7 @@ class MininetWorker:
                 "last_rtt": None,
                 "history": [],
                 "start_time": time.time(),
+                "_started_monotonic": time.monotonic(),
                 "duration_sec": 0.0,
                 "accounting_complete": False,
                 "_sample_stop": threading.Event(),
@@ -363,12 +364,13 @@ class MininetWorker:
 
     def _monitor_traffic(self, job_id: str, proc: subprocess.Popen):
         job = self.traffic_jobs[job_id]
+        started = job.setdefault("_started_monotonic", time.monotonic())
         threading.Thread(target=self._sample_traffic,
                          args=(proc, job["_sample_stop"]), daemon=True).start()
         try:
             for line in proc.stdout:
                 with self.traffic_lock:
-                    job["_accounting"].feed(line, time.time() - job["start_time"])
+                    job["_accounting"].feed(line, time.monotonic() - started)
             proc.wait()
         except Exception:
             logger.exception("Failed to read ping accounting for %s", job_id)
@@ -377,7 +379,7 @@ class MininetWorker:
             with self.traffic_lock:
                 job["accounting_complete"] = job["_accounting"].final_seen
                 job["active"] = False
-                job["duration_sec"] = time.time() - job["start_time"]
+                job["duration_sec"] = time.monotonic() - started
 
     def stop_traffic(self, job_id: str) -> Dict[str, Any]:
         return self._stop_traffic_job(job_id)

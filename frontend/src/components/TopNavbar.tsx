@@ -103,7 +103,7 @@ export const TopNavbar: React.FC = () => {
             <Radio className="w-3.5 h-3.5 animate-spin text-blue-400" />
             <span>{experimentProgress?.status || 'Experiment Running...'}</span>
             {experimentProgress?.progress_percent !== undefined && (
-              <span className="font-mono font-bold text-white">{experimentProgress.progress_percent}%</span>
+              <span className="font-mono font-bold text-white">Stage {experimentProgress.progress_percent}%</span>
             )}
           </div>
         )}
@@ -146,13 +146,13 @@ export const TopNavbar: React.FC = () => {
 
         {/* WebSocket Connection Indicator */}
         <div
-          title={connected ? 'WebSocket: Real-time Telemetry Live' : 'WebSocket: Disconnected (Retrying...)'}
+          title={connected ? 'WebSocket connected; individual measurements may be historical or unavailable' : 'WebSocket: Disconnected (Retrying...)'}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium"
         >
           {connected ? (
             <>
               <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400 text-[11px]">WS LIVE</span>
+              <span className="text-emerald-400 text-[11px]">WS CONNECTED</span>
             </>
           ) : (
             <>

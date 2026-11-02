@@ -13,10 +13,10 @@ export const TopologyView: React.FC = () => {
   const [inspectLink, setInspectLink] = useState<TopologyLink | null>(null);
 
   const diamondLinks = [
-    { src: 's1', dst: 's2', label: 'Primary Path Branch A' },
-    { src: 's2', dst: 's4', label: 'Primary Path Branch B' },
-    { src: 's1', dst: 's3', label: 'Backup Path Branch A' },
-    { src: 's3', dst: 's4', label: 'Backup Path Branch B' },
+    { src: 's1', dst: 's2', label: 'Diamond branch via s2' },
+    { src: 's2', dst: 's4', label: 'Diamond branch via s2' },
+    { src: 's1', dst: 's3', label: 'Diamond branch via s3' },
+    { src: 's3', dst: 's4', label: 'Diamond branch via s3' },
   ];
 
   return (
@@ -70,7 +70,7 @@ export const TopologyView: React.FC = () => {
                 const link = topology.links.find(
                   (l) => (l.src === d.src && l.dst === d.dst) || (l.src === d.dst && l.dst === d.src)
                 );
-                const isUp = link ? link.status === 'UP' : true;
+                const isUp = link?.status === 'UP';
                 return (
                   <div
                     key={`${d.src}-${d.dst}`}
@@ -83,6 +83,7 @@ export const TopologyView: React.FC = () => {
                       <div className="text-[10px] text-slate-400">{d.label}</div>
                     </div>
                     <button
+                      disabled={!link || topology.simulation_state !== 'RUNNING'}
                       onClick={() => setLinkStatus(d.src, d.dst, isUp ? 'down' : 'up').catch(console.error)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
                         isUp
@@ -90,7 +91,7 @@ export const TopologyView: React.FC = () => {
                           : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
                       }`}
                     >
-                      {isUp ? 'Disconnect' : 'Restore'}
+                      {!link ? 'N/A' : isUp ? 'Disconnect' : 'Restore'}
                     </button>
                   </div>
                 );

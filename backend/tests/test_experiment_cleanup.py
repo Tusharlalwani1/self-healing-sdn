@@ -290,7 +290,7 @@ class ExperimentCleanupTests(OwnershipFixture):
 
     async def test_collection_timeout_cleans_and_records_failed(self):
         self.hook = lambda payload: copy.deepcopy(self.jobs[payload["job_id"]]) if payload["command"] == "get_traffic_stats" else None
-        with patch.object(er, "time", SimpleNamespace(time=Mock(side_effect=[0, 0, 1000]))):
+        with patch.object(er, "time", SimpleNamespace(time=Mock(return_value=0), monotonic=Mock(side_effect=[0, 0, 1000, 1000]))):
             with self.assertRaises(OperationError) as caught:
                 await self.run_case()
         self.assertEqual(caught.exception.status_code, 504)

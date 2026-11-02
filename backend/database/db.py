@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from backend.config import DB_PATH
+from backend.services.metrics import experiment_metrics
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -20,9 +21,9 @@ def init_db():
             start_time TEXT NOT NULL,
             end_time TEXT,
             status TEXT NOT NULL,
-            packets_transmitted INTEGER DEFAULT 0,
-            packets_received INTEGER DEFAULT 0,
-            packet_loss_percent REAL DEFAULT 0.0,
+            packets_transmitted INTEGER,
+            packets_received INTEGER,
+            packet_loss_percent REAL,
             avg_rtt_ms REAL,
             min_rtt_ms REAL,
             max_rtt_ms REAL,
@@ -47,6 +48,7 @@ def init_db():
     conn.close()
 
 def save_experiment(record: Dict[str, Any]):
+    record = experiment_metrics(record)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -63,9 +65,9 @@ def save_experiment(record: Dict[str, Any]):
         record["start_time"],
         record.get("end_time"),
         record["status"],
-        record.get("packets_transmitted", 0),
-        record.get("packets_received", 0),
-        record.get("packet_loss_percent", 0.0),
+        record.get("packets_transmitted"),
+        record.get("packets_received"),
+        record.get("packet_loss_percent"),
         record.get("avg_rtt_ms"),
         record.get("min_rtt_ms"),
         record.get("max_rtt_ms"),
@@ -93,7 +95,7 @@ def get_experiments(limit: int = 50) -> List[Dict[str, Any]]:
                 d["summary"] = {}
         else:
             d["summary"] = {}
-        results.append(d)
+        results.append(experiment_metrics(d))
     conn.close()
     return results
 
@@ -111,7 +113,7 @@ def get_experiment_by_id(exp_id: str) -> Optional[Dict[str, Any]]:
             d["summary"] = json.loads(d["summary_json"])
         except Exception:
             d["summary"] = {}
-    return d
+    return experiment_metrics(d)
 
 def delete_experiment_by_id(exp_id: str) -> bool:
     conn = get_db_connection()

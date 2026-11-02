@@ -9,6 +9,7 @@ from backend.database.db import save_experiment, save_event_log
 from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
 from backend.services.operation_error import OperationError, public_error
+from backend.services.metrics import PERFORMANCE_FIELDS, TIMING_SCOPE
 from backend.websocket.manager import ws_manager
 
 logger = logging.getLogger("sdn.experiment")
@@ -130,6 +131,7 @@ class ExperimentRunner:
         link_dirty = False
         traffic_finalized = False
         failure = None
+        started_monotonic = time.monotonic()
         try:
             save_event_log("INFO", "EXPERIMENT", f"Started experiment {exp_id} on {controller_type}")
             await self._broadcast(run_id, {
@@ -221,9 +223,9 @@ class ExperimentRunner:
 
             # 8. Wait for traffic completion or timeout
             expected_duration = (packet_count * traffic_interval) + 3.0
-            t_start_wait = time.time()
+            t_start_wait = time.monotonic()
             final_stats = {}
-            while time.time() - t_start_wait < expected_duration + 5.0:
+            while time.monotonic() - t_start_wait < expected_duration + 5.0:
                 check_context()
                 stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
                 if stats.get("status") == "not_found" or not stats.get("active", True):
@@ -250,13 +252,17 @@ class ExperimentRunner:
                 final_stats.get("controller_generation") != generation or
                 not final_stats.get("accounting_complete")):
                 raise OperationError(502, "Experiment final telemetry ownership was not confirmed")
+            tx, rx = final_stats.get("transmitted"), final_stats.get("received")
+            if (type(tx) is not int or type(rx) is not int or not 0 <= rx <= tx or
+                    not isinstance(final_stats.get("loss_percent"), (int, float))):
+                raise OperationError(502, "Experiment final packet accounting was incomplete")
 
             # 9. Extract performance metrics
             record["end_time"] = datetime.datetime.now().isoformat()
             record["status"] = "COMPLETED"
             record["packets_transmitted"] = final_stats["transmitted"]
-            record["packets_received"] = final_stats.get("received", 0)
-            record["packet_loss_percent"] = final_stats.get("loss_percent", 0.0)
+            record["packets_received"] = final_stats["received"]
+            record["packet_loss_percent"] = final_stats["loss_percent"] if tx else None
             record["min_rtt_ms"] = final_stats.get("min_rtt")
             record["avg_rtt_ms"] = final_stats.get("avg_rtt")
             record["max_rtt_ms"] = final_stats.get("max_rtt")
@@ -323,6 +329,16 @@ class ExperimentRunner:
                     record["status"] = "FAILED"
                     record["summary"]["error"] = public_error(exc)
             record["end_time"] = datetime.datetime.now().isoformat()
+            record["summary"]["duration_sec"] = time.monotonic() - started_monotonic
+            record["summary"]["timing_scope"] = TIMING_SCOPE
+            if record["status"] != "COMPLETED":
+                for field in PERFORMANCE_FIELDS:
+                    record[field] = None
+                # Preserve any actual drained counters as diagnostic evidence,
+                # but do not leave copied success metrics in failed summaries.
+                for field in ("packets_transmitted", "packets_received", "loss_percent", "avg_rtt_ms", "recovery_duration_ms"):
+                    if field in record["summary"]:
+                        record["summary"][field] = None
             save_experiment(record)
             save_event_log("SUCCESS" if record["status"] == "COMPLETED" else "WARNING", "EXPERIMENT",
                            f"Experiment {exp_id}: {record['status']}", record["summary"])

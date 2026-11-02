@@ -16,6 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
+import { controllerTimingEvents, formatMetric, topologyCounts } from '../services/metrics';
 import { TopologyCanvas } from '../components/topology/TopologyCanvas';
 import { SwitchInspectorModal } from '../components/modals/SwitchInspectorModal';
 import { LinkInspectorModal } from '../components/modals/LinkInspectorModal';
@@ -40,15 +41,14 @@ export const OverviewView: React.FC = () => {
   const [inspectSwitch, setInspectSwitch] = useState<TopologyNode | null>(null);
   const [inspectLink, setInspectLink] = useState<TopologyLink | null>(null);
 
-  const activeLinks = topology.links.filter((l) => l.status === 'UP').length;
-  const failedLinks = topology.links.filter((l) => l.status === 'DOWN').length;
+  const counts = topologyCounts(topology);
+  const activeLinks = counts.up;
+  const failedLinks = counts.down;
 
-  const recoveryEvents = events.filter((e) => e.level === 'SUCCESS' && e.source === 'CONTROLLER');
+  const recoveryEvents = controllerTimingEvents(events);
   const latestRecovery = recoveryEvents[0];
 
-  const recentRecoveryDuration = latestRecovery?.details?.duration_ms
-    ? `${latestRecovery.details.duration_ms.toFixed(1)} ms`
-    : 'N/A';
+  const recentRecoveryDuration = formatMetric(latestRecovery?.details?.duration_ms, ' ms', 1);
 
   // Quick failure inject on s1-s2
   const handleQuickFailure = async () => {
@@ -97,7 +97,7 @@ export const OverviewView: React.FC = () => {
             <Network className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-xl font-bold text-white mt-1 font-mono">
-            {topology.switches.length || 4}
+            {counts.switches}
           </div>
           <div className="text-[10px] text-slate-500 font-mono mt-0.5">s1, s2, s3, s4</div>
         </div>
@@ -109,7 +109,7 @@ export const OverviewView: React.FC = () => {
             <Server className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="text-xl font-bold text-white mt-1 font-mono">
-            {topology.hosts.length || 2}
+            {counts.hosts}
           </div>
           <div className="text-[10px] text-slate-500 font-mono mt-0.5">h1 (10.0.0.1), h2</div>
         </div>
@@ -123,7 +123,7 @@ export const OverviewView: React.FC = () => {
           <div className="text-xl font-bold text-emerald-400 mt-1 font-mono">
             {activeLinks}
           </div>
-          <div className="text-[10px] text-slate-500 font-mono mt-0.5">10 Mbps / 5ms</div>
+          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Reported topology links</div>
         </div>
 
         {/* 6. Failed Links */}
@@ -145,7 +145,7 @@ export const OverviewView: React.FC = () => {
             <Radio className="w-4 h-4 text-amber-400" />
           </div>
           <div className={`text-xl font-bold mt-1 font-mono ${trafficStats.loss_percent > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-            {trafficStats.loss_percent}%
+            {trafficStats.transmitted > 0 ? formatMetric(trafficStats.loss_percent, '%') : 'N/A'}
           </div>
           <div className="text-[10px] text-slate-500 font-mono mt-0.5">
             {trafficStats.received}/{trafficStats.transmitted} pkts
@@ -159,35 +159,35 @@ export const OverviewView: React.FC = () => {
             <Clock className="w-4 h-4 text-sky-400" />
           </div>
           <div className="text-xl font-bold text-sky-400 mt-1 font-mono">
-            {trafficStats.avg_rtt ? `${trafficStats.avg_rtt.toFixed(1)} ms` : 'N/A'}
+            {formatMetric(trafficStats.avg_rtt, ' ms', 1)}
           </div>
           <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-            Last: {trafficStats.last_rtt ? `${trafficStats.last_rtt}ms` : 'N/A'}
+            Last: {formatMetric(trafficStats.last_rtt, ' ms')}
           </div>
         </div>
 
         {/* 9. Recovery Events */}
         <div className="glass-panel p-3.5 rounded-2xl border border-slate-800/80">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] uppercase font-bold tracking-wider">Healed Events</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider">Processing Events</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-xl font-bold text-emerald-400 mt-1 font-mono">
             {recoveryEvents.length}
           </div>
-          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Reactive / FF</div>
+          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Loaded event history</div>
         </div>
 
         {/* 10. Latest Recovery Duration */}
         <div className="glass-panel p-3.5 rounded-2xl border border-slate-800/80">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] uppercase font-bold tracking-wider">Healing Time</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider">Controller Processing</span>
             <Timer className="w-4 h-4 text-purple-400" />
           </div>
           <div className="text-xl font-bold text-purple-400 mt-1 font-mono">
             {recentRecoveryDuration}
           </div>
-          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Sub-second recovery</div>
+          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Latest loaded event; not outage</div>
         </div>
       </div>
 
@@ -270,7 +270,7 @@ export const OverviewView: React.FC = () => {
           {/* Live RTT Chart Preview */}
           <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 flex-1 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Live Ping RTT (ms)</span>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Traffic Job RTT (ms)</span>
               <span className="text-[10px] font-mono text-cyan-400">
                 {trafficStats.active && simulationState === 'RUNNING' ? 'STREAMING' : 'IDLE'}
               </span>
@@ -303,8 +303,8 @@ export const OverviewView: React.FC = () => {
             </div>
 
             <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span>Loss: {trafficStats.loss_percent}%</span>
-              <span>Avg: {trafficStats.avg_rtt ? `${trafficStats.avg_rtt.toFixed(1)}ms` : '-'}</span>
+              <span>Loss: {trafficStats.transmitted > 0 ? formatMetric(trafficStats.loss_percent, '%') : 'N/A'}</span>
+              <span>Avg: {formatMetric(trafficStats.avg_rtt, ' ms', 1)}</span>
               <span>Tx: {trafficStats.transmitted}</span>
             </div>
           </div>

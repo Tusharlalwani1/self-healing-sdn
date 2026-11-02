@@ -36,8 +36,8 @@ class LinkInfo(BaseModel):
     src_port: Optional[int] = None
     dst_port: Optional[int] = None
     status: str  # 'UP' | 'DOWN'
-    bw: Optional[float] = 10.0
-    delay: Optional[str] = "5ms"
+    bw: Optional[float] = None
+    delay: Optional[str] = None
     last_changed: Optional[float] = None
 
 class TopologyResponse(BaseModel):
@@ -101,9 +101,9 @@ class ExperimentRecord(BaseModel):
     start_time: str
     end_time: Optional[str] = None
     status: str  # 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
-    packets_transmitted: int = 0
-    packets_received: int = 0
-    packet_loss_percent: float = 0.0
+    packets_transmitted: Optional[int] = None
+    packets_received: Optional[int] = None
+    packet_loss_percent: Optional[float] = None
     avg_rtt_ms: Optional[float] = None
     min_rtt_ms: Optional[float] = None
     max_rtt_ms: Optional[float] = None

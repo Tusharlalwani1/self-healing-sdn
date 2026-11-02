@@ -17,7 +17,8 @@ async def get_topology():
         "active_controller": controller_manager.active_controller,
         "simulation_state": mininet_client.simulation_state,
         "active_paths": controller_manager.active_paths,
-        "backup_paths": [["s1", "s3", "s4"]] if ["s1", "s2", "s4"] in controller_manager.active_paths else [["s1", "s2", "s4"]]
+        # No verified backup-route telemetry is currently collected.
+        "backup_paths": []
     }
 
 @router.get("/switch/{dpid}")

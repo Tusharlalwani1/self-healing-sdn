@@ -49,7 +49,7 @@ class RyuLogParser:
             return {
                 "type": "ROUTE_RECOMPUTED",
                 "duration_ms": float(m.group("duration")),
-                "note": "Switches had already failed over locally via OpenFlow FF group table",
+                "note": "Controller recomputation only; local FF switching time not measured",
                 "raw": line
             }
 

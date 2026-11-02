@@ -10,7 +10,9 @@ export const ControllersView: React.FC = () => {
     selectController,
     controllerLogs,
     loading,
-    experimentRunning
+    experimentRunning,
+    controllerStatus,
+    connected
   } = useSDNStore();
 
   const handleSelect = async (id: ControllerType) => {
@@ -116,7 +118,7 @@ export const ControllersView: React.FC = () => {
               ({activeController ? activeController.toUpperCase() : 'NO CONTROLLER'})
             </span>
           </div>
-          <span className="text-[10px] font-mono text-emerald-400 animate-pulse">STREAMING</span>
+          <span className="text-[10px] font-mono text-emerald-400 animate-pulse">{connected && controllerStatus === 'READY' ? 'LOG CONNECTION ACTIVE' : 'LOG BUFFER'}</span>
         </div>
 
         <div className="p-4 bg-slate-950/90 font-mono text-xs text-slate-300 h-64 overflow-y-auto space-y-1">
