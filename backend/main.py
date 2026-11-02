@@ -11,6 +11,8 @@ from backend.database.db import init_db, get_event_logs
 from backend.websocket.manager import ws_manager
 from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
+from backend.services.traffic_service import traffic_service
+from backend.services.experiment_runner import experiment_runner
 from backend.api import (
     system_router,
     controllers_router,
@@ -84,6 +86,9 @@ async def websocket_events_endpoint(websocket: WebSocket):
             "controller_status": controller_manager.status,
             **controller_manager.health_details(),
             "simulation_state": mininet_client.simulation_state,
+            **mininet_client.runtime_context(),
+            "traffic": traffic_service.snapshot(),
+            "experiment_run_id": experiment_runner.current_run_id,
             "active_paths": controller_manager.active_paths,
             "timestamp": time.time()
         })

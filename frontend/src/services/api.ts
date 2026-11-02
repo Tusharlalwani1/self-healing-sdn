@@ -50,17 +50,18 @@ export const api = {
 
   // Simulation
   startSimulation: (controller_type?: ControllerType) =>
-    fetchJson<{ status: string; message: string }>('/api/simulation/start', {
+    fetchJson<{ status: string; message: string; runtime_id?: string; runtime_revision?: number }>('/api/simulation/start', {
       method: 'POST',
       body: JSON.stringify({ controller_type }),
     }),
   stopSimulation: () => fetchJson<{ status: string; message: string }>('/api/simulation/stop', { method: 'POST' }),
   getSimulationStatus: () =>
     fetchJson<{ state: string; active_controller?: string; controller_status?: string; uptime: number;
+      runtime_id?: string; runtime_revision?: number;
       pid?: number | null; exit_code?: number | null; failure_reason?: string | null }>(
       '/api/simulation/status'
     ),
-  resetSimulation: () => fetchJson<{ status: string }>('/api/simulation/reset', { method: 'POST' }),
+  resetSimulation: () => fetchJson<{ status: string; runtime_id?: string; runtime_revision?: number }>('/api/simulation/reset', { method: 'POST' }),
 
   // Topology
   getTopology: () => fetchJson<TopologyResponse>('/api/topology'),
@@ -84,7 +85,7 @@ export const api = {
 
   // Traffic
   startTraffic: (params: { src?: string; dst?: string; interval?: number; count?: number; job_id?: string }) =>
-    fetchJson<{ status: string; job_id: string; active: boolean }>('/api/traffic/start', {
+    fetchJson<{ status: string; job_id: string; active: boolean } & Partial<TrafficStats>>('/api/traffic/start', {
       method: 'POST',
       body: JSON.stringify(params),
     }),
@@ -93,6 +94,7 @@ export const api = {
 
   // Experiments
   runExperiment: (params: {
+    run_id?: string;
     controller: string;
     traffic_interval?: number;
     packet_count?: number;

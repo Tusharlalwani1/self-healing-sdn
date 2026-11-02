@@ -49,6 +49,7 @@ class MininetWorker:
         self.traffic_jobs: Dict[str, Dict[str, Any]] = {}
         self.traffic_lock = threading.Lock()
         self.running = True
+        self.runtime_id = None
 
     @staticmethod
     def _clean_simulation_resources():
@@ -56,7 +57,7 @@ class MininetWorker:
         for sw in ['s1', 's2', 's3', 's4']:
             subprocess.run(["ovs-vsctl", "--if-exists", "del-br", sw], capture_output=True, check=True, timeout=5)
 
-    def build_network(self, controller_ip="127.0.0.1", controller_port=6653):
+    def build_network(self, controller_ip="127.0.0.1", controller_port=6653, runtime_id=None):
         if Mininet is None:
             raise RuntimeError("Mininet library is not installed in current Python environment")
 
@@ -88,6 +89,7 @@ class MininetWorker:
         logger.info("Starting Mininet network...")
         net.start()
         self.net = net
+        self.runtime_id = runtime_id
         logger.info("Mininet network started successfully!")
         return {"status": "ok", "message": "Mininet network started"}
 
@@ -95,8 +97,9 @@ class MininetWorker:
         logger.info("Stopping Mininet network...")
         with self.traffic_lock:
             job_ids = list(self.traffic_jobs)
+        finals = []
         for job_id in job_ids:
-            self._stop_traffic_job(job_id)
+            finals.append(self._stop_traffic_job(job_id))
 
         if self.net:
             try:
@@ -108,7 +111,7 @@ class MininetWorker:
 
         self._clean_simulation_resources()
         logger.info("Mininet network stopped and cleaned up.")
-        return {"status": "ok", "message": "Network stopped"}
+        return {"status": "ok", "message": "Network stopped", "traffic_stats": finals}
 
     def get_topology(self) -> Dict[str, Any]:
         if not self.net:
@@ -271,9 +274,11 @@ class MininetWorker:
         loss = self.net.pingAll()
         return {"status": "ok", "loss_percent": loss}
 
-    def start_traffic(self, src: str, dst: str, interval: float, count: int, job_id: str) -> Dict[str, Any]:
+    def start_traffic(self, src: str, dst: str, interval: float, count: int, job_id: str, owner=None) -> Dict[str, Any]:
         if not self.net:
             raise OperationError(409, "Network is not running")
+        if not owner or owner.get("runtime_id") != self.runtime_id:
+            raise OperationError(409, "Traffic request belongs to a different runtime")
 
         if interval <= 0 or count <= 0:
             raise OperationError(400, "Traffic interval and packet count must be positive")
@@ -301,6 +306,7 @@ class MininetWorker:
                 raise OperationError(502, "Traffic process failed to start; check worker logs")
 
             job_data = {
+                **owner,
                 "job_id": job_id,
                 "src": src,
                 "dst": dst,
@@ -327,7 +333,7 @@ class MininetWorker:
             job_data["_monitor"] = t
             t.start()
 
-        return {"status": "ok", "job_id": job_id, "active": True}
+        return {"status": "ok", **owner, "job_id": job_id, "active": True}
 
     @staticmethod
     def _ping_handler_ready(proc, signum):
@@ -456,7 +462,7 @@ class MininetWorker:
                 if cmd == "start":
                     resp = self.build_network(
                         req.get("controller_ip", "127.0.0.1"),
-                        req.get("controller_port", 6653)
+                        req.get("controller_port", 6653), req.get("runtime_id")
                     )
                 elif cmd == "stop":
                     resp = self.stop_network()
@@ -471,7 +477,9 @@ class MininetWorker:
                 elif cmd == "start_traffic":
                     resp = self.start_traffic(
                         req["src"], req["dst"], req.get("interval", 0.1),
-                        req.get("count", 100), req["job_id"]
+                        req.get("count", 100), req["job_id"],
+                        {key: req.get(key) for key in ("runtime_id", "runtime_revision", "controller",
+                         "controller_generation", "experiment_id", "traffic_sequence")}
                     )
                 elif cmd == "stop_traffic":
                     resp = self.stop_traffic(req["job_id"])

@@ -46,6 +46,8 @@ export interface TopologyLink {
 }
 
 export interface TopologyResponse {
+  runtime_id?: string;
+  runtime_revision?: number;
   nodes: TopologyNode[];
   links: TopologyLink[];
   switches: string[];
@@ -57,8 +59,15 @@ export interface TopologyResponse {
 }
 
 export interface TrafficStats {
+  runtime_id?: string;
+  runtime_revision?: number;
+  traffic_sequence?: number;
+  controller?: string | null;
+  controller_generation?: string | null;
+  controller_changed?: boolean;
+  experiment_id?: string | null;
   accounting_complete?: boolean;
-  job_id?: string;
+  job_id?: string | null;
   active: boolean;
   transmitted: number;
   received: number;
@@ -77,6 +86,7 @@ export interface TrafficStats {
 }
 
 export interface ExperimentRecord {
+  run_id?: string;
   id: string;
   controller: string;
   start_time: string;

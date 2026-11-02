@@ -18,6 +18,7 @@ class ExperimentRunner:
         self.current_experiment: Optional[Dict[str, Any]] = None
         self.is_running: bool = False
         self._cancel_flag: bool = False
+        self.current_run_id = None
 
     async def run_experiment(
         self,
@@ -27,27 +28,31 @@ class ExperimentRunner:
         failure_delay_sec: float = 2.0,
         fail_src: str = "s1",
         fail_dst: str = "s2",
-        repetitions: int = 1
+        repetitions: int = 1,
+        run_id: Optional[str] = None
     ) -> Dict[str, Any]:
         if self.is_running:
             raise OperationError(409, "An experiment is already in progress")
 
+        run_id = run_id or uuid.uuid4().hex
         if controller_type == "comparison":
             return await self.run_comparison(
                 traffic_interval=traffic_interval,
                 packet_count=packet_count,
                 failure_delay_sec=failure_delay_sec,
                 fail_src=fail_src,
-                fail_dst=fail_dst
+                fail_dst=fail_dst, run_id=run_id
             )
 
         self.is_running = True
+        self.current_run_id = run_id
         self._cancel_flag = False
-        exp_id = f"exp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{controller_type}"
+        exp_id = f"exp_{uuid.uuid4().hex}_{controller_type}"
 
         record: Dict[str, Any] = {
             "id": exp_id,
             "controller": controller_type,
+            "run_id": run_id,
             "start_time": datetime.datetime.now().isoformat(),
             "status": "RUNNING",
             "traffic_params": {
@@ -59,8 +64,9 @@ class ExperimentRunner:
             "summary": {}
         }
 
+        self.current_experiment = record
         save_event_log("INFO", "EXPERIMENT", f"Started experiment {exp_id} on {controller_type}")
-        await ws_manager.broadcast({
+        await self._broadcast(run_id, {
             "event_type": "EXPERIMENT_PROGRESS",
             "experiment_id": exp_id,
             "status": "PREPARING",
@@ -72,6 +78,9 @@ class ExperimentRunner:
             # Every run (including the same mode) starts with fresh Ryu memory
             # and the shared, checked dataplane boundary used by the dashboard.
             await controller_manager.select_controller(controller_type, force_restart=True)
+            generation = controller_manager.generation
+            if controller_manager.active_controller != controller_type or controller_manager.status != "READY":
+                raise OperationError(409, "Experiment controller activation was not confirmed")
             await asyncio.sleep(1.0)
 
             # 2. Ensure Mininet simulation is running
@@ -79,19 +88,33 @@ class ExperimentRunner:
                 await mininet_client.start_simulation()
                 await asyncio.sleep(1.5)
 
+            runtime_id = mininet_client.runtime_id
+            def check_context():
+                if (controller_manager.generation != generation or
+                    controller_manager.active_controller != controller_type or
+                    controller_manager.status != "READY" or mininet_client.runtime_id != runtime_id or
+                    mininet_client.simulation_state != "RUNNING"):
+                    raise OperationError(409, "Experiment runtime or controller changed")
+            check_context()
+            if mininet_client.experiment_id not in (None, exp_id):
+                raise OperationError(409, "Runtime is owned by another experiment")
+            mininet_client.experiment_id = exp_id
+            record["summary"].update(runtime_id=runtime_id, controller_generation=generation,
+                                     experiment_id=exp_id, run_id=run_id)
+
             # 3. Restore all links to baseline state
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "experiment_id": exp_id,
                 "status": "RESTORING_LINKS",
                 "progress_percent": 20,
                 "message": "Ensuring all physical links are UP..."
             })
-            await mininet_client.set_link_status(fail_src, fail_dst, "up")
+            await mininet_client.set_link_status(fail_src, fail_dst, "up", experiment_id=exp_id)
             await asyncio.sleep(1.0)
 
             # 4. Warm-up ping to discover topology and prime flow tables
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "experiment_id": exp_id,
                 "status": "WARMUP",
@@ -102,15 +125,17 @@ class ExperimentRunner:
             await asyncio.sleep(1.0)
 
             # 5. Start high-frequency traffic
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "experiment_id": exp_id,
                 "status": "TRAFFIC_ACTIVE",
                 "progress_percent": 40,
                 "message": f"Generating ICMP traffic: {packet_count} packets @ {traffic_interval}s interval..."
             })
-            traffic_job_id = f"exp_traffic_{uuid.uuid4().hex[:6]}"
-            await mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id)
+            traffic_job_id = f"exp_traffic_{uuid.uuid4().hex}"
+            check_context()
+            await mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id)
+            record["summary"]["traffic_job_id"] = traffic_job_id
 
             # 6. Wait for failure delay
             await asyncio.sleep(failure_delay_sec)
@@ -118,11 +143,13 @@ class ExperimentRunner:
                 raise asyncio.CancelledError("Experiment cancelled by user")
 
             # 7. Inject Link Failure
+            check_context()
+            recovery_before_failure = controller_manager.last_recovery_event
             t_fail = time.time()
             record["failure_timestamp"] = t_fail
-            await mininet_client.set_link_status(fail_src, fail_dst, "down")
+            await mininet_client.set_link_status(fail_src, fail_dst, "down", experiment_id=exp_id)
             save_event_log("WARNING", "EXPERIMENT", f"Injecting failure: disconnecting {fail_src} <-> {fail_dst}")
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "experiment_id": exp_id,
                 "status": "FAILURE_INJECTED",
@@ -135,6 +162,7 @@ class ExperimentRunner:
             t_start_wait = time.time()
             final_stats = {}
             while time.time() - t_start_wait < expected_duration + 5.0:
+                check_context()
                 stats = await mininet_client.get_traffic_stats(traffic_job_id)
                 if stats.get("status") == "not_found" or not stats.get("active", True):
                     final_stats = stats
@@ -149,10 +177,18 @@ class ExperimentRunner:
             if "transmitted" in stopped_stats:
                 final_stats = stopped_stats
 
+            check_context()
+            if (final_stats.get("job_id") != traffic_job_id or
+                final_stats.get("runtime_id") != runtime_id or
+                final_stats.get("experiment_id") != exp_id or
+                final_stats.get("controller_generation") != generation or
+                not final_stats.get("accounting_complete")):
+                raise OperationError(502, "Experiment final telemetry ownership was not confirmed")
+
             # 9. Extract performance metrics
             record["end_time"] = datetime.datetime.now().isoformat()
             record["status"] = "COMPLETED"
-            record["packets_transmitted"] = final_stats.get("transmitted", packet_count)
+            record["packets_transmitted"] = final_stats["transmitted"]
             record["packets_received"] = final_stats.get("received", 0)
             record["packet_loss_percent"] = final_stats.get("loss_percent", 0.0)
             record["min_rtt_ms"] = final_stats.get("min_rtt")
@@ -161,7 +197,11 @@ class ExperimentRunner:
 
             # Check recovery event from controller
             rec_event = controller_manager.last_recovery_event
-            if rec_event:
+            if (rec_event and rec_event is not recovery_before_failure and
+                rec_event.get("controller_generation") == generation and
+                rec_event.get("runtime_id") == runtime_id and rec_event.get("experiment_id") == exp_id and
+                set(rec_event.get("failure_link", [])) == {fail_src, fail_dst} and
+                rec_event.get("event_received_at", 0) >= t_fail):
                 record["recovery_event"] = rec_event.get("type")
                 record["recovery_duration_ms"] = rec_event.get("duration_ms")
             elif controller_type == "baseline":
@@ -169,6 +209,7 @@ class ExperimentRunner:
                 record["recovery_duration_ms"] = None
 
             record["summary"] = {
+                **record["summary"],
                 "controller": controller_type,
                 "failure_link": f"{fail_src}-{fail_dst}",
                 "loss_percent": record["packet_loss_percent"],
@@ -180,13 +221,15 @@ class ExperimentRunner:
 
             # Restoration is part of the requested run. Confirm it before
             # persisting/broadcasting successful completion.
-            await mininet_client.set_link_status(fail_src, fail_dst, "up")
+            await mininet_client.set_link_status(fail_src, fail_dst, "up", experiment_id=exp_id)
+
+            check_context()
 
             # Save to SQLite
             save_experiment(record)
             save_event_log("SUCCESS", "EXPERIMENT", f"Experiment {exp_id} completed successfully!", record["summary"])
 
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_FINISHED",
                 "experiment": record,
                 "progress_percent": 100,
@@ -199,7 +242,7 @@ class ExperimentRunner:
             record["status"] = "CANCELLED"
             record["end_time"] = datetime.datetime.now().isoformat()
             save_experiment(record)
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "experiment_id": exp_id,
                 "status": "CANCELLED",
@@ -213,14 +256,18 @@ class ExperimentRunner:
             record["summary"]["error"] = public_error(e)
             save_experiment(record)
             save_event_log("ERROR", "EXPERIMENT", f"Experiment {exp_id} failed: {e}")
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_FINISHED",
                 "experiment": record,
                 "error": public_error(e)
             })
             raise
         finally:
+            if mininet_client.experiment_id == exp_id:
+                mininet_client.experiment_id = None
             self.is_running = False
+            self.current_run_id = None
+            self.current_experiment = None
 
     async def run_comparison(
         self,
@@ -228,9 +275,11 @@ class ExperimentRunner:
         packet_count: int = 200,
         failure_delay_sec: float = 1.5,
         fail_src: str = "s1",
-        fail_dst: str = "s2"
+        fail_dst: str = "s2",
+        run_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Runs Baseline, Reactive, and Fast Failover under identical conditions."""
+        run_id = run_id or uuid.uuid4().hex
         controllers = ["baseline", "reactive", "fast_failover"]
         results = []
         comparison_id = f"cmp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -238,7 +287,7 @@ class ExperimentRunner:
         save_event_log("INFO", "EXPERIMENT", f"Starting 3-way automated comparison {comparison_id}")
 
         for idx, ctrl in enumerate(controllers):
-            await ws_manager.broadcast({
+            await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
                 "comparison_id": comparison_id,
                 "stage": f"Running {ctrl} ({idx+1}/3)",
@@ -264,11 +313,14 @@ class ExperimentRunner:
         }
 
         save_event_log("SUCCESS", "EXPERIMENT", f"Automated comparison {comparison_id} complete!")
-        await ws_manager.broadcast({
+        await self._broadcast(run_id, {
             "event_type": "COMPARISON_FINISHED",
             "comparison": comparison_summary
         })
         return comparison_summary
+
+    async def _broadcast(self, run_id, message):
+        await ws_manager.broadcast({**message, "run_id": run_id})
 
     def cancel(self):
         if self.is_running:

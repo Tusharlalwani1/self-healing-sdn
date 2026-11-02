@@ -163,17 +163,23 @@ class TrafficServiceTests(unittest.IsolatedAsyncioTestCase):
         runner = er.ExperimentRunner()
         final = {**stats(), "active": False, "transmitted": 7, "received": 5,
                  "loss_percent": 28.57, "accounting_complete": True}
+        owner = {}
+        async def start(*args, **kwargs):
+            owner.update(job_id=args[4], runtime_id=er.mininet_client.runtime_id,
+                         controller_generation=er.controller_manager.generation, experiment_id=kwargs["experiment_id"])
         with patch.object(er, "save_event_log"), patch.object(er, "save_experiment"), \
                 patch.object(er.ws_manager, "broadcast", new_callable=AsyncMock), \
                 patch.object(er.asyncio, "sleep", new_callable=AsyncMock), \
                 patch.object(er.controller_manager, "select_controller", new_callable=AsyncMock), \
+                patch.object(er.controller_manager, "active_controller", "baseline"), \
+                patch.object(er.controller_manager, "status", "READY"), \
                 patch.object(er.controller_manager, "last_recovery_event", None), \
                 patch.object(er.mininet_client, "simulation_state", "RUNNING"), \
                 patch.object(er.mininet_client, "set_link_status", new_callable=AsyncMock), \
                 patch.object(er.mininet_client, "pingall", new_callable=AsyncMock), \
-                patch.object(er.mininet_client, "start_traffic", new_callable=AsyncMock), \
-                patch.object(er.mininet_client, "get_traffic_stats", AsyncMock(return_value={**final, "transmitted": 6})), \
-                patch.object(er.mininet_client, "stop_traffic", AsyncMock(return_value={"status": "ok", **final})):
+                patch.object(er.mininet_client, "start_traffic", AsyncMock(side_effect=start)), \
+                patch.object(er.mininet_client, "get_traffic_stats", AsyncMock(side_effect=lambda job: {**final, **owner, "transmitted": 6})), \
+                patch.object(er.mininet_client, "stop_traffic", AsyncMock(side_effect=lambda job: {"status": "ok", **final, **owner})):
             record = await runner.run_experiment("baseline", packet_count=1000)
         self.assertEqual(record["packets_transmitted"], 7)
         self.assertEqual(record["packets_received"], 5)
