@@ -50,6 +50,8 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
         # longer sufficient proof of a managed, listening process.
         patch.object(simulation.controller_manager, "select_controller",
                      AsyncMock(return_value={"status": "ok"})).start()
+        patch.object(simulation.controller_manager, "active_controller", "reactive").start()
+        patch.object(simulation.controller_manager, "status", "READY").start()
         patch.object(cm, "save_event_log").start()
         self.broadcast = patch.object(mc.ws_manager, "broadcast", new_callable=AsyncMock).start()
         self.service = ts.TrafficService()
@@ -63,12 +65,21 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
                                     AsyncMock(return_value=(self.reader, self.writer))).start()
 
     def write(self, data):
-        self.command = json.loads(data)["command"]
+        self.payload = json.loads(data)
+        self.command = self.payload["command"]
 
     async def read(self):
         if self.command == "get_topology":
             return b'{"status":"ok","nodes":[],"links":[]}'
-        return self.reply if isinstance(self.reply, bytes) else json.dumps(self.reply).encode()
+        if isinstance(self.reply, bytes):
+            return self.reply
+        reply = dict(self.reply)
+        if self.command in ("start_traffic", "stop_traffic", "get_traffic_stats") and reply.get("status") != "error":
+            owner = self.client._traffic_owners.get(self.payload["job_id"], self.payload)
+            reply.update({key: owner.get(key) for key in ("job_id", "runtime_id", "experiment_id", "controller_generation")})
+            if self.command == "stop_traffic":
+                reply.update(transmitted=1, received=1, loss_percent=0, accounting_complete=True)
+        return json.dumps(reply).encode()
 
     async def post(self, path, data=None):
         return await request(self.app, path, data)

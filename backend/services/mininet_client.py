@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from typing import Dict, Any, Optional
 
 from backend.config import MININET_SOCKET_PATH, BACKEND_DIR
@@ -19,7 +20,36 @@ class MininetClient:
         self.socket_path = socket_path
         self.worker_proc: Optional[asyncio.subprocess.Process] = None
         self._lock = asyncio.Lock()
+        self._runtime_lock = asyncio.Lock()
+        self.runtime_id = uuid.uuid4().hex
+        self.runtime_revision = int(time.time() * 1000)
+        self.controller_type = None
+        self.controller_generation = None
+        self._traffic_sequence = 0
+        self._traffic_owners = {}
+        self._runtime_listeners = []
+        self.experiment_id = None
         self.simulation_state: str = "STOPPED"  # STOPPED, STARTING, RUNNING, STOPPING, ERROR
+
+    def runtime_context(self):
+        return {"runtime_id": self.runtime_id, "runtime_revision": self.runtime_revision}
+
+    def controller_context(self):
+        return {"controller": self.controller_type, "controller_generation": self.controller_generation}
+
+    def _notify_runtime(self, finals=None):
+        for listener in self._runtime_listeners:
+            listener(finals or [])
+
+    def traffic_stats(self, result, job_id):
+        owner = self._traffic_owners.get(job_id)
+        if not owner or owner["runtime_id"] != self.runtime_id:
+            raise OperationError(409, "Traffic job belongs to a different runtime")
+        if any(result.get(key) != owner.get(key) for key in
+               ("job_id", "runtime_id", "experiment_id", "controller_generation")):
+            raise OperationError(502, "Worker traffic ownership does not match requested job")
+        return {**result, **owner,
+                "controller_changed": owner["controller_generation"] != self.controller_generation}
 
     async def ensure_worker(self):
         """Ensure the privileged Mininet worker daemon is running."""
@@ -138,16 +168,23 @@ class MininetClient:
                     except OSError:
                         pass
 
-    async def start_simulation(
+    async def start_simulation(self, *args, **kwargs):
+        async with self._runtime_lock:
+            return await self._start_simulation(*args, **kwargs)
+
+    async def _start_simulation(
         self,
         controller_ip="127.0.0.1",
         controller_port=6653
     ) -> Dict[str, Any]:
 
+        self.runtime_id = uuid.uuid4().hex
+        self.runtime_revision += 1
+        self._notify_runtime()
         self.simulation_state = "STARTING"
 
         await ws_manager.broadcast({
-            "event_type": "SIMULATION_STATUS",
+            "event_type": "SIMULATION_STATUS", **self.runtime_context(),
             "state": "STARTING",
             "timestamp": time.time()
         })
@@ -158,7 +195,8 @@ class MininetClient:
             res = await self._send_command({
                 "command": "start",
                 "controller_ip": controller_ip,
-                "controller_port": controller_port
+                "controller_port": controller_port,
+                **self.runtime_context()
             }, timeout=20.0)
 
             if res.get("status") == "ok":
@@ -171,7 +209,7 @@ class MininetClient:
                 )
 
                 await ws_manager.broadcast({
-                    "event_type": "SIMULATION_STATUS",
+                    "event_type": "SIMULATION_STATUS", **self.runtime_context(),
                     "state": "RUNNING",
                     "timestamp": time.time()
                 })
@@ -189,7 +227,7 @@ class MininetClient:
                 self.simulation_state = "ERROR"
                 raise OperationError(502, "Mininet network start was not confirmed")
 
-            return res
+            return {**res, **self.runtime_context()}
 
         except Exception as e:
             self.simulation_state = "ERROR"
@@ -203,7 +241,7 @@ class MininetClient:
             )
 
             await ws_manager.broadcast({
-                "event_type": "SIMULATION_STATUS",
+                "event_type": "SIMULATION_STATUS", **self.runtime_context(),
                 "state": "ERROR",
                 "error": public_error(e),
                 "timestamp": time.time()
@@ -211,13 +249,19 @@ class MininetClient:
 
             raise
 
-    async def stop_simulation(self) -> Dict[str, Any]:
+    async def stop_simulation(self, *args, **kwargs):
+        async with self._runtime_lock:
+            return await self._stop_simulation(*args, **kwargs)
+
+    async def _stop_simulation(self) -> Dict[str, Any]:
         if self.simulation_state == "STOPPED" and not os.path.exists(self.socket_path):
-            return {"status": "ok", "message": "Simulation already stopped"}
+            self._notify_runtime()
+            return {"status": "ok", "message": "Simulation already stopped", **self.runtime_context()}
+        self.runtime_revision += 1
         self.simulation_state = "STOPPING"
 
         await ws_manager.broadcast({
-            "event_type": "SIMULATION_STATUS",
+            "event_type": "SIMULATION_STATUS", **self.runtime_context(),
             "state": "STOPPING",
             "timestamp": time.time()
         })
@@ -237,18 +281,26 @@ class MininetClient:
             )
 
             await ws_manager.broadcast({
-                "event_type": "SIMULATION_STATUS",
+                "event_type": "SIMULATION_STATUS", **self.runtime_context(),
                 "state": "STOPPED",
                 "timestamp": time.time()
             })
 
-            return res
+            finals = []
+            for item in res.get("traffic_stats", []):
+                if self._traffic_owners.get(item.get("job_id"), {}).get("runtime_id") == self.runtime_id:
+                    finals.append(self.traffic_stats(item, item["job_id"]))
+            self._notify_runtime(finals)
+            for final in finals:
+                await ws_manager.broadcast({"event_type": "TRAFFIC_COMPLETED", "stats": final,
+                                            "timestamp": time.time()})
+            return {**res, **self.runtime_context()}
 
         except Exception as e:
             self.simulation_state = "ERROR"
             logger.warning("Error stopping Mininet: %s", e)
             await ws_manager.broadcast({
-                "event_type": "SIMULATION_STATUS", "state": "ERROR",
+                "event_type": "SIMULATION_STATUS", **self.runtime_context(), "state": "ERROR",
                 "error": public_error(e), "timestamp": time.time()
             })
             raise
@@ -287,9 +339,11 @@ class MininetClient:
         self,
         node1: str,
         node2: str,
-        status: str
+        status: str,
+        experiment_id: Optional[str] = None
     ) -> Dict[str, Any]:
-
+        if self.experiment_id and experiment_id != self.experiment_id:
+            raise OperationError(409, "Link controls are owned by the active experiment")
         if self.simulation_state == "STOPPED":
             raise OperationError(409, "Network is not running")
 
@@ -340,26 +394,42 @@ class MininetClient:
             timeout=15.0
         )
 
-    async def start_traffic(
+    async def start_traffic(self, *args, **kwargs):
+        async with self._runtime_lock:
+            return await self._start_traffic(*args, **kwargs)
+
+    async def _start_traffic(
         self,
         src: str,
         dst: str,
         interval: float,
         count: int,
-        job_id: str
+        job_id: str,
+        experiment_id: Optional[str] = None
     ) -> Dict[str, Any]:
 
         if self.simulation_state == "STOPPED":
             raise OperationError(409, "Network is not running")
 
+        if self.simulation_state != "RUNNING":
+            raise OperationError(409, "Traffic requires a running simulation")
+        if job_id in self._traffic_owners:
+            raise OperationError(409, "Traffic job ID has already been used")
+        self._traffic_sequence += 1
+        owner = {"job_id": job_id, **self.runtime_context(), **self.controller_context(),
+                 "experiment_id": experiment_id, "traffic_sequence": self._traffic_sequence}
         res = await self._send_command({
             "command": "start_traffic",
             "src": src,
             "dst": dst,
             "interval": interval,
             "count": count,
-            "job_id": job_id
+            **owner
         })
+        if any(res.get(key) != owner.get(key) for key in
+               ("job_id", "runtime_id", "experiment_id", "controller_generation")):
+            raise OperationError(502, "Worker did not confirm traffic ownership")
+        self._traffic_owners[job_id] = owner
 
         save_event_log(
             "INFO",
@@ -368,17 +438,23 @@ class MininetClient:
             f"(interval={interval}s, count={count})"
         )
 
-        return res
+        return self.traffic_stats(res, job_id)
 
-    async def stop_traffic(
+    async def stop_traffic(self, *args, **kwargs):
+        async with self._runtime_lock:
+            return await self._stop_traffic(*args, **kwargs)
+
+    async def _stop_traffic(
         self,
         job_id: str
     ) -> Dict[str, Any]:
-
+        if job_id not in self._traffic_owners or self._traffic_owners[job_id]["runtime_id"] != self.runtime_id:
+            raise OperationError(409, "Traffic job belongs to a different runtime")
         res = await self._send_command({
             "command": "stop_traffic",
             "job_id": job_id
         })
+        res = self.traffic_stats(res, job_id)
 
         save_event_log(
             "INFO",
@@ -388,15 +464,21 @@ class MininetClient:
 
         return res
 
-    async def get_traffic_stats(
+    async def get_traffic_stats(self, *args, **kwargs):
+        async with self._runtime_lock:
+            return await self._get_traffic_stats(*args, **kwargs)
+
+    async def _get_traffic_stats(
         self,
         job_id: str
     ) -> Dict[str, Any]:
-
-        return await self._send_command({
+        if job_id not in self._traffic_owners or self._traffic_owners[job_id]["runtime_id"] != self.runtime_id:
+            raise OperationError(409, "Traffic job belongs to a different runtime")
+        res = await self._send_command({
             "command": "get_traffic_stats",
             "job_id": job_id
         }, timeout=3.0)
+        return self.traffic_stats(res, job_id)
 
     async def get_switch_info(
         self,

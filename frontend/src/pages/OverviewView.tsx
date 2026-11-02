@@ -272,7 +272,7 @@ export const OverviewView: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Live Ping RTT (ms)</span>
               <span className="text-[10px] font-mono text-cyan-400">
-                {trafficStats.active ? 'STREAMING' : 'IDLE'}
+                {trafficStats.active && simulationState === 'RUNNING' ? 'STREAMING' : 'IDLE'}
               </span>
             </div>
 

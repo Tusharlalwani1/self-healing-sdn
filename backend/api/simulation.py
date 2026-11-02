@@ -28,6 +28,7 @@ async def stop_simulation():
 async def get_simulation_status():
     await controller_manager.reconcile_health()
     return {
+        **mininet_client.runtime_context(),
         "state": mininet_client.simulation_state,
         "active_controller": controller_manager.active_controller,
         "controller_status": controller_manager.status,

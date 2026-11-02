@@ -41,6 +41,8 @@ class LinkInfo(BaseModel):
     last_changed: Optional[float] = None
 
 class TopologyResponse(BaseModel):
+    runtime_id: Optional[str] = None
+    runtime_revision: Optional[int] = None
     nodes: List[NodeInfo]
     links: List[LinkInfo]
     switches: List[str]
@@ -62,9 +64,16 @@ class TrafficStartRequest(BaseModel):
     job_id: Optional[str] = None
 
 class TrafficStats(BaseModel):
-    job_id: str
+    job_id: Optional[str] = None
     active: bool
     accounting_complete: bool = False
+    runtime_id: Optional[str] = None
+    runtime_revision: Optional[int] = None
+    traffic_sequence: Optional[int] = None
+    controller: Optional[str] = None
+    controller_generation: Optional[str] = None
+    controller_changed: bool = False
+    experiment_id: Optional[str] = None
     transmitted: int = 0
     received: int = 0
     loss_percent: float = 0.0
@@ -76,6 +85,7 @@ class TrafficStats(BaseModel):
     history: List[Dict[str, Any]] = []
 
 class ExperimentRunRequest(BaseModel):
+    run_id: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
     controller: Literal["baseline", "reactive", "fast_failover", "comparison"] = "reactive"
     traffic_interval: float = Field(0.02, gt=0, allow_inf_nan=False)
     packet_count: int = Field(300, gt=0)
@@ -85,6 +95,7 @@ class ExperimentRunRequest(BaseModel):
     repetitions: int = Field(1, ge=1)
 
 class ExperimentRecord(BaseModel):
+    run_id: Optional[str] = None
     id: str
     controller: str
     start_time: str

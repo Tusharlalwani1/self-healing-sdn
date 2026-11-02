@@ -183,7 +183,8 @@ export const TrafficView: React.FC = () => {
             Live Packet Round-Trip Latency (ms)
           </h2>
           <span className="text-xs text-slate-400 font-mono">
-            {trafficStats.active ? '● LIVE TELEMETRY' : trafficStats.accounting_complete === false ? 'FINAL COUNTERS UNCONFIRMED' : 'IDLE'}
+            {trafficStats.active && simulationState === 'RUNNING' ? '● LIVE TELEMETRY' : !trafficStats.job_id ? 'NO ACTIVE TRAFFIC' : trafficStats.accounting_complete === false ? 'FINAL COUNTERS UNCONFIRMED' : 'FINAL / IDLE'}
+            {trafficStats.controller && ` · ${trafficStats.controller}${trafficStats.controller_changed ? ' (controller changed since start)' : ''}`}
           </span>
         </div>
 

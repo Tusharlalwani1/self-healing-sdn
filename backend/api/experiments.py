@@ -15,7 +15,7 @@ async def run_experiment(req: ExperimentRunRequest):
         failure_delay_sec=req.failure_delay_sec,
         fail_src=req.fail_link_src,
         fail_dst=req.fail_link_dst,
-        repetitions=req.repetitions
+        repetitions=req.repetitions, run_id=req.run_id
     )
 
 @router.post("/cancel")

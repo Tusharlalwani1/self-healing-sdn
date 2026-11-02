@@ -11,6 +11,7 @@ const sample = (transmitted: number, received: number, active = true) => ({
 });
 
 test('WebSocket outage and recovery preserve worker cumulative accounting', () => {
+  useSDNStore.setState({ simulationState: 'RUNNING', trafficStats: sample(0, 0) });
   for (const [tx, rx] of [[100, 80], [120, 80], [140, 100]]) {
     const stats = sample(tx, rx);
     useSDNStore.getState().handleWebSocketMessage({ event_type: 'TRAFFIC_TICK', stats });

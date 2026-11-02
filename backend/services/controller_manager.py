@@ -4,6 +4,7 @@ import os
 import signal
 import socket
 import time
+import uuid
 from typing import Optional, Dict, Any, List
 import psutil
 
@@ -30,8 +31,10 @@ class ControllerManager:
         self.active_paths: List[List[str]] = []
         self.routes_summary: Dict[str, Any] = {}
         self.last_recovery_event: Optional[Dict[str, Any]] = None
+        self.last_link_failure = None
         self.started_at: Optional[float] = None
         self._lifecycle_lock = asyncio.Lock()
+        self.generation = None
 
     def is_port_in_use(self, port: int = CONTROLLER_PORT) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -83,12 +86,16 @@ class ControllerManager:
                     await self._stop_controller()
 
                 self.active_controller = controller_type
+                self.generation = uuid.uuid4().hex
+                mininet_client.controller_type = controller_type
+                mininet_client.controller_generation = self.generation
                 self.status = "STARTING"
                 self.exit_code = None
                 self.failure_reason = None
                 self.active_paths = []
                 self.routes_summary = {}
                 self.last_recovery_event = None
+                self.last_link_failure = None
                 await ws_manager.broadcast({
                     "event_type": "CONTROLLER_STATUS",
                     "controller": controller_type,
@@ -357,6 +364,14 @@ class ControllerManager:
                     await self._handle_parsed_event(parsed)
 
     async def _handle_parsed_event(self, event: Dict[str, Any]):
+        event = {**event, "controller_generation": self.generation,
+                 "runtime_id": mininet_client.runtime_id, "experiment_id": mininet_client.experiment_id,
+                 "event_received_at": time.time()}
+        failure = self.last_link_failure
+        if (failure and failure.get("controller_generation") == self.generation and
+            failure.get("runtime_id") == mininet_client.runtime_id and
+            failure.get("experiment_id") == mininet_client.experiment_id):
+            event["failure_link"] = [failure["src"], failure["dst"]]
         ev_type = event.get("type")
         if ev_type == "ACTIVE_PATH":
             self.active_paths = [event["path"]]
@@ -388,6 +403,7 @@ class ControllerManager:
                 "timestamp": time.time()
             })
         elif ev_type == "LINK_DOWN":
+            self.last_link_failure = event
             save_event_log("WARNING", "CONTROLLER", f"Link down: {event['src']} <-> {event['dst']}", event)
             await ws_manager.broadcast({
                 "event_type": "LINK_FAILURE",

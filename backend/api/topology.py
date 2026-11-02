@@ -9,6 +9,7 @@ router = APIRouter(prefix="/api/topology", tags=["Topology"], route_class=Runtim
 async def get_topology():
     topo = await mininet_client.get_topology()
     return {
+        **mininet_client.runtime_context(),
         "nodes": topo.get("nodes", []),
         "links": topo.get("links", []),
         "switches": topo.get("switches", []),
