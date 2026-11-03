@@ -199,6 +199,7 @@ class ExperimentRunner:
             check_context()
             record["summary"]["traffic_job_id"] = traffic_job_id
             await self._step(mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id))
+            traffic_started = time.monotonic()
 
             # 6. Wait for failure delay
             await self._sleep(failure_delay_sec)
@@ -222,21 +223,30 @@ class ExperimentRunner:
             })
 
             # 8. Wait for traffic completion or timeout
-            expected_duration = (packet_count * traffic_interval) + 3.0
-            t_start_wait = time.monotonic()
+            # Configured spacing is not a wall-clock completion guarantee in
+            # WSL: scheduling/backpressure can slow actual attempts. Keep the
+            # existing 8s grace, but renew the remaining-work allowance only
+            # when this exact job reports additional measured transmissions.
+            # Once Tx reaches count (or stops progressing), the grace expires;
+            # elapsed time alone never declares the process completed.
+            grace_sec = 8.0
+            deadline = traffic_started + packet_count * traffic_interval + grace_sec
+            observed_tx = 0
             final_stats = {}
-            while time.monotonic() - t_start_wait < expected_duration + 5.0:
+            while True:
                 check_context()
                 stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
                 if stats.get("status") == "not_found" or not stats.get("active", True):
                     final_stats = stats
                     break
-                await self._sleep(0.5)
-
-            if not final_stats:
-                final_stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
-                if final_stats.get("active", True):
+                now = time.monotonic()
+                tx = stats.get("transmitted")
+                if type(tx) is int and observed_tx < tx <= packet_count:
+                    observed_tx = tx
+                    deadline = max(deadline, now + (packet_count - tx) * traffic_interval + grace_sec)
+                if now >= deadline:
                     raise OperationError(504, "Experiment traffic timed out")
+                await self._sleep(0.5)
 
             # Stop traffic explicitly if still active
             stopped_stats = await mininet_client.stop_traffic(traffic_job_id)
