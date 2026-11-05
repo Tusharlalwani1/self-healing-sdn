@@ -1,3 +1,4 @@
+import { PageHeader } from '../components/ui/Primitives';
 import React, { useState, useEffect } from 'react';
 import { ScrollText, Filter, RefreshCw, Search } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
@@ -18,30 +19,24 @@ export const EventLogsView: React.FC = () => {
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="page eventlogs-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <ScrollText className="w-5 h-5 text-blue-400" />
-            Centralized NOC Event Logs
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Audit trail of controller events, Mininet operations, failure injections, and self-healing transitions
-          </p>
+          <PageHeader eyebrow="WORKSPACE / EVENTS" title="Event timeline" description="Search the recorded controller, simulation and network events."/>
         </div>
 
         <button
           onClick={() => fetchEvents()}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+          <RefreshCw className="w-3.5 h-3.5 text-accent" />
           <span>Refresh Logs</span>
         </button>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+      <div className="panel p-4 rounded-md border border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-slate-400" />
           <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Level Filter:</span>
@@ -49,9 +44,10 @@ export const EventLogsView: React.FC = () => {
             <button
               key={lvl}
               onClick={() => setLevelFilter(lvl)}
+              aria-pressed={levelFilter === lvl}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
                 levelFilter === lvl
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
@@ -60,23 +56,23 @@ export const EventLogsView: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex items-center space-x-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 w-64">
+        <div className="flex items-center space-x-2 bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 w-64">
           <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search event messages..."
+            aria-label="Search event messages" placeholder="Search event messages..."
             className="bg-transparent text-xs text-white placeholder-slate-500 outline-none w-full"
           />
         </div>
       </div>
 
       {/* Log Feed Table */}
-      <div className="glass-panel rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl">
+      <div className="panel rounded-md border border-slate-800/80 overflow-hidden ">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-xs uppercase">
               <tr>
                 <th className="py-3 px-4 w-32">Timestamp</th>
                 <th className="py-3 px-4 w-24">Level</th>
@@ -87,18 +83,18 @@ export const EventLogsView: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {filtered.map((ev, i) => (
                 <tr key={ev.id || i} className="hover:bg-slate-900/40 transition">
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">
+                  <td className="py-3 px-4 text-slate-500 text-xs">
                     {new Date(ev.timestamp * 1000).toLocaleTimeString()}
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                       ev.level === 'SUCCESS'
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                         : ev.level === 'WARNING'
                         ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                         : ev.level === 'ERROR'
                         ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                        : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                        : 'bg-blue-500/15 text-accent border border-blue-500/30'
                     }`}>
                       {ev.level}
                     </span>

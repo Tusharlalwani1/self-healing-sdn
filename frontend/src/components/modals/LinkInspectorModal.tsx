@@ -1,3 +1,4 @@
+import { InspectorDrawer } from '../ui/InspectorDrawer';
 import React, { useState } from 'react';
 import { X, ZapOff, CheckCircle2, ArrowRightLeft, Radio } from 'lucide-react';
 import { TopologyLink } from '../../types';
@@ -9,12 +10,13 @@ interface LinkInspectorModalProps {
 }
 
 export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, onClose }) => {
-  const { setLinkStatus } = useSDNStore();
+  const { setLinkStatus, topology, simulationState } = useSDNStore();
   const [loading, setLoading] = useState(false);
 
   if (!link) return null;
 
-  const isUp = link.status === 'UP';
+  const currentLink = topology.links.find(item => item.id === link.id) ?? link;
+  const isUp = currentLink.status === 'UP';
 
   const handleToggle = async () => {
     setLoading(true);
@@ -28,12 +30,12 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+    <InspectorDrawer title="Link inspector" onClose={onClose}>
+      <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+            <div className={`w-10 h-10 rounded-md flex items-center justify-center border ${
               isUp ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
             }`}>
               <ArrowRightLeft className="w-5 h-5" />
@@ -47,6 +49,7 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
           </div>
           <button
             onClick={onClose}
+            aria-label="Close inspector"
             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
           >
             <X className="w-4 h-4" />
@@ -56,30 +59,30 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
         {/* Details */}
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase font-semibold">Current State</div>
+            <div className="p-3 rounded-md bg-slate-950/60 border border-slate-800">
+              <div className="text-xs text-slate-500 uppercase font-semibold">Current State</div>
               <div className={`text-sm font-bold mt-1 flex items-center gap-1.5 ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                 <span className={`w-2 h-2 rounded-full ${isUp ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                {link.status}
+                {currentLink.status}
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase font-semibold">Configured Bandwidth / Delay</div>
+            <div className="p-3 rounded-md bg-slate-950/60 border border-slate-800">
+              <div className="text-xs text-slate-500 uppercase font-semibold">Configured Bandwidth / Delay</div>
               <div className="text-sm font-bold text-slate-200 mt-1 font-mono">
                 {link.bw != null ? `${link.bw} Mbps` : 'N/A'} / {link.delay ?? 'N/A'}
               </div>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono space-y-1">
+          <div className="p-3 rounded-md bg-slate-950/60 border border-slate-800 text-xs font-mono space-y-1">
             <div className="flex justify-between text-slate-400">
               <span>{link.src} Interface:</span>
-              <span className="text-blue-400 font-semibold">{link.src_intf}</span>
+              <span className="text-accent font-semibold">{link.src_intf}</span>
             </div>
             <div className="flex justify-between text-slate-400">
               <span>{link.dst} Interface:</span>
-              <span className="text-blue-400 font-semibold">{link.dst_intf}</span>
+              <span className="text-accent font-semibold">{link.dst_intf}</span>
             </div>
           </div>
 
@@ -88,8 +91,8 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
             {isUp ? (
               <button
                 onClick={handleToggle}
-                disabled={loading}
-                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-semibold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition disabled:opacity-50"
+                disabled={loading || simulationState !== 'RUNNING'}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-md font-semibold text-xs bg-rose-600 hover:bg-rose-500 text-white  -600/30 transition disabled:opacity-50"
               >
                 <ZapOff className="w-4 h-4" />
                 <span>{loading ? 'Disconnecting...' : 'Disconnect Link (Inject Failure)'}</span>
@@ -97,8 +100,8 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
             ) : (
               <button
                 onClick={handleToggle}
-                disabled={loading}
-                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition disabled:opacity-50"
+                disabled={loading || simulationState !== 'RUNNING'}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-md font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white  -600/30 transition disabled:opacity-50"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{loading ? 'Restoring...' : 'Restore Link (Set Link UP)'}</span>
@@ -107,6 +110,6 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
           </div>
         </div>
       </div>
-    </div>
+    </InspectorDrawer>
   );
 };

@@ -1,0 +1,33 @@
+{
+  "results": [
+    "Default controls are h1, h2, 0.05 sec, 300 packets",
+    "500 packets: actual POST payload, tick, completion and REST polling preserve all controls",
+    "500 packets: leaving for topology and returning preserves controls after actual remount",
+    "1000 packets: actual POST payload, tick, completion and REST polling preserve all controls",
+    "1000 packets: leaving for topology and returning preserves controls after actual remount",
+    "300 packets: actual POST payload, tick, completion and REST polling preserve all controls",
+    "300 packets: leaving for topology and returning preserves controls after actual remount",
+    "Explicit next-job edits remain independent of previous job telemetry"
+  ],
+  "requests": [
+    {
+      "src": "h1",
+      "dst": "h2",
+      "interval": 0.05,
+      "count": 500
+    },
+    {
+      "src": "h2",
+      "dst": "h1",
+      "interval": 0.1,
+      "count": 1000
+    },
+    {
+      "src": "h1",
+      "dst": "h2",
+      "interval": 0.05,
+      "count": 300
+    }
+  ],
+  "consoleErrors": []
+}

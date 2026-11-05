@@ -1,0 +1,90 @@
+{
+  "base": "http://127.0.0.1:8000",
+  "pages": [
+    {
+      "tab": "overview",
+      "path": "/dashboard",
+      "heading": "Network at a glance",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "topology",
+      "path": "/dashboard/topology",
+      "heading": "Network inspector",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "controllers",
+      "path": "/dashboard/controllers",
+      "heading": "Choose a recovery strategy",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "traffic",
+      "path": "/dashboard/traffic",
+      "heading": "Traffic monitor",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "simulator",
+      "path": "/dashboard/simulator",
+      "heading": "Test a broken path",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "experiment",
+      "path": "/dashboard/experiment",
+      "heading": "Experiment lab",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "analytics",
+      "path": "/dashboard/analytics",
+      "heading": "Performance analytics",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "logs",
+      "path": "/dashboard/logs",
+      "heading": "Event timeline",
+      "overflow": false,
+      "labels": true
+    },
+    {
+      "tab": "settings",
+      "path": "/dashboard/settings",
+      "heading": "System & configuration",
+      "overflow": false,
+      "labels": true
+    }
+  ],
+  "consoleErrors": [],
+  "writeRequests": [],
+  "failedResponses": [],
+  "apiReads": [
+    "/api/system/status",
+    "/api/controllers",
+    "/api/topology",
+    "/api/events/logs?limit=100",
+    "/api/experiments/history?limit=50"
+  ],
+  "checks": [
+    "Staged headline and healthy / link-down / recovered SVG phases verified",
+    "Primary CTA hover responds without triggering navigation",
+    "Native smooth anchors, once-per-section scroll reveals and offscreen illustration pause verified",
+    "Reduced-motion illustration is static",
+    "Three actual controller options loaded and WebSocket connected",
+    "All nine dashboard deep links render directly through FastAPI",
+    "Direct refresh restores System & Config route",
+    "Back and forward keep URL and rendered page aligned",
+    "Laptop and tablet controls do not cause page overflow"
+  ],
+  "nativeReducedMotion": true
+}

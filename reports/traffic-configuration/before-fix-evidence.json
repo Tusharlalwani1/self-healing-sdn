@@ -1,0 +1,15 @@
+{
+  "results": [
+    "Default controls are h1, h2, 0.05 sec, 300 packets",
+    "500 packets: actual POST payload, tick, completion and REST polling preserve all controls"
+  ],
+  "requests": [
+    {
+      "src": "h1",
+      "dst": "h2",
+      "interval": 0.05,
+      "count": 500
+    }
+  ],
+  "consoleErrors": []
+}

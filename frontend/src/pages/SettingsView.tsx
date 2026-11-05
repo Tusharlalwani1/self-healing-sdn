@@ -1,10 +1,11 @@
+import { PageHeader } from '../components/ui/Primitives';
 import React, { useEffect } from 'react';
 import { Settings, CheckCircle2, XCircle, RefreshCw, Terminal, Wrench, Shield } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
 import { api } from '../services/api';
 
 export const SettingsView: React.FC = () => {
-  const { systemStatus, fetchSystemStatus, resetSimulation } = useSDNStore();
+  const { systemStatus, fetchSystemStatus, resetSimulation, connected } = useSDNStore();
 
   useEffect(() => {
     fetchSystemStatus();
@@ -23,52 +24,47 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="page settings-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Settings className="w-5 h-5 text-blue-400" />
-            System Diagnostics & Environment Configuration
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Verify WSL2 environment, Open vSwitch service, Ryu framework, and Mininet kernel capabilities
-          </p>
+          <PageHeader eyebrow="WORKSPACE / SYSTEM" title="System & configuration" description="Inspect reported runtime information, component probes and maintenance controls."/>
         </div>
 
         <button
           onClick={() => fetchSystemStatus()}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+          <RefreshCw className="w-3.5 h-3.5 text-accent" />
           <span>Re-check Environment</span>
         </button>
       </div>
 
       {/* Diagnostics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 space-y-3"><span className="text-xs text-slate-400">LIVE TRANSPORT</span><div className="text-lg font-medium">{connected ? 'WebSocket connected' : 'WebSocket disconnected'}</div><p className="text-xs text-slate-400">Transport status does not imply that every measurement is current or available.</p></div>
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Host OS & WSL</span>
-            <Shield className="w-4 h-4 text-blue-400" />
+            <Shield className="w-4 h-4 text-accent" />
           </div>
           <div className="text-lg font-bold text-white font-mono">{systemStatus?.os ?? 'N/A'}</div>
-          <p className="text-xs text-slate-400">Windows Subsystem for Linux (WSL2 Ubuntu 22.04 LTS)</p>
+          <p className="text-xs text-slate-400">Backend-reported host operating system</p>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Python Runtime</span>
-            <Terminal className="w-4 h-4 text-cyan-400" />
+            <Terminal className="w-4 h-4 text-accent" />
           </div>
-          <div className="text-lg font-bold text-cyan-400 font-mono">{systemStatus?.python_version ?? 'N/A'}</div>
-          <p className="text-xs text-slate-400">sdn-env virtualenv (Ryu 4.34 + NetworkX)</p>
+          <div className="text-lg font-bold text-accent font-mono">{systemStatus?.python_version ?? 'N/A'}</div>
+          <p className="text-xs text-slate-400">Backend-reported interpreter version. Component versions are not probed here.</p>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">OpenFlow 1.3 Port</span>
-            <div className={`w-2.5 h-2.5 rounded-full ${systemStatus?.openflow_port_active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${systemStatus?.openflow_port_active ? 'bg-emerald-400 ' : 'bg-slate-600'}`} />
           </div>
           <div className="text-lg font-bold text-white font-mono">Port {systemStatus?.controller_port ?? 'N/A'}</div>
           <p className="text-xs text-slate-400">
@@ -76,7 +72,7 @@ export const SettingsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mininet Emulator</span>
             {systemStatus?.mininet_available ? (
@@ -91,7 +87,7 @@ export const SettingsView: React.FC = () => {
           <p className="text-xs text-slate-400">Network namespaces and virtual ethernet switches</p>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open vSwitch (OVS)</span>
             {systemStatus?.ovs_service_running ? (
@@ -106,19 +102,19 @@ export const SettingsView: React.FC = () => {
           <p className="text-xs text-slate-400">ovs-vswitchd & ovsdb-server datapath</p>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
+        <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Maintenance Actions</span>
             <Wrench className="w-4 h-4 text-amber-400" />
           </div>
           <button
             onClick={handleCleanMininet}
-            className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 transition flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 px-3 rounded-md text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 transition flex items-center justify-center gap-1.5"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Clean Mininet State (mn -c)</span>
           </button>
-          <p className="text-[11px] text-slate-500">Purge stale bridges, veth pairs, and locks</p>
+          <p className="text-xs text-slate-500">Purge stale bridges, veth pairs, and locks</p>
         </div>
       </div>
     </div>

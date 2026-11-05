@@ -296,7 +296,10 @@ class MininetWorker:
             # Prime ARP / OpenFlow path discovery if needed
             src_node.cmd(f"ping -c 1 -W 1 {dst_ip}")
 
-            cmd = ["stdbuf", "-oL", "-eL", "ping", "-i", str(interval), "-c", str(count), dst_ip]
+            # -c bounds actual attempts, not time spent waiting for replies.
+            # Bound the final no-reply linger explicitly (iputils defaults to
+            # 10 seconds). Never use a wall-clock -w that can truncate attempts.
+            cmd = ["stdbuf", "-oL", "-eL", "ping", "-i", str(interval), "-c", str(count), "-W", "1", dst_ip]
             logger.info(f"Starting traffic job {job_id}: {' '.join(cmd)} on {src}")
             proc = src_node.popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
                                   env={**os.environ, "LC_ALL": "C"})

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createRequestId } from '../services/requestId';
 import {
   ControllerInfo,
   ControllerType,
@@ -367,7 +368,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   runExperiment: async (params) => {
     if (get().experimentRunning) throw new Error('An experiment is already in progress');
-    const runId = crypto.randomUUID();
+    const runId = createRequestId();
     set({ experimentRunId: runId, experimentRunning: true, experimentProgress: { status: 'STARTING', progress_percent: 5 } });
     try {
       const res = await api.runExperiment({ ...params, run_id: runId });
