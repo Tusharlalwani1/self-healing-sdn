@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { LandingPage } from './pages/LandingPage';
+import { dashboardPages, dashboardPath, tabFromPath } from './services/navigation';
 import { useSDNStore } from './stores/sdnStore';
 import { wsService } from './services/websocket';
 
@@ -15,7 +17,7 @@ import { AnalyticsView } from './pages/AnalyticsView';
 import { EventLogsView } from './pages/EventLogsView';
 import { SettingsView } from './pages/SettingsView';
 
-export const App: React.FC = () => {
+const Dashboard: React.FC = () => {
   const {
     currentTab,
     fetchControllers,
@@ -78,25 +80,55 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#030712] text-slate-100 overflow-hidden font-sans">
+    <div className="dashboard-shell">
+      <a className="skip-link" href="#workspace-content">Skip to workspace</a>
       {/* Persistent Left Sidebar */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="workspace">
         {/* Persistent Top Navigation Bar */}
         <TopNavbar />
-        {error && <div role="alert" className="px-6 py-2 text-sm text-rose-300">
+        {error && <div role="alert" className="global-error">
           {error} <button onClick={() => useSDNStore.setState({ error: null })}>Dismiss</button>
         </div>}
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-950/40 to-slate-950">
-          {renderActiveView()}
+        <main id="workspace-content" className="workspace-content" tabIndex={-1}>
+          <div key={currentTab} className="page-transition">{renderActiveView()}</div>
         </main>
       </div>
     </div>
   );
+};
+
+export const App: React.FC = () => {
+  const [path, setPath] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const sync = () => {
+      const pathname = window.location.pathname;
+      const tab = tabFromPath(pathname);
+      if (tab) useSDNStore.setState({ currentTab: tab });
+      setPath(pathname);
+    };
+    sync();
+    window.addEventListener('popstate', sync);
+    const unsubscribe = useSDNStore.subscribe((state, previous) => {
+      if (state.currentTab !== previous.currentTab && tabFromPath(window.location.pathname)) {
+        const next = dashboardPath(state.currentTab);
+        if (next !== window.location.pathname) window.history.pushState(null, '', next);
+        setPath(next);
+        document.title = `${dashboardPages[state.currentTab]} · Self-Healing SDN`;
+        document.querySelector('main')?.scrollTo(0, 0);
+      }
+    });
+    return () => { window.removeEventListener('popstate', sync); unsubscribe(); };
+  }, []);
+  const tab = tabFromPath(path);
+  useEffect(() => { document.title = tab ? `${dashboardPages[tab]} · Self-Healing SDN` : 'Self-Healing SDN · Network resilience, made visible'; }, [tab]);
+  if (path === '/') return <LandingPage/>;
+  if (!tab) return <div className="route-empty"><h1>Page not found</h1><p>This workspace URL does not exist.</p><a className="button button-primary" href="/dashboard">Open control center</a></div>;
+  return <Dashboard/>;
 };
 
 export default App;

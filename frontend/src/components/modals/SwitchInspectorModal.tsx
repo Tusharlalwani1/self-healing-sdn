@@ -1,3 +1,4 @@
+import { InspectorDrawer } from '../ui/InspectorDrawer';
 import React, { useEffect, useRef, useState } from 'react';
 import { formatMetric, ovsEntryCount } from '../../services/metrics';
 import { X, Network, Layers, RefreshCw, Cpu, Activity } from 'lucide-react';
@@ -19,6 +20,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'flows' | 'groups' | 'ports'>('flows');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
   const details = storedDetails?.switch === node?.name ? storedDetails : null;
 
@@ -27,11 +29,13 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
     const version = ++requestVersion.current;
     setDetails(null);
     setLoading(true);
+    setError(null);
     try {
       const dpid = node.dpid || parseInt(node.name.replace('s', ''));
       const res = await api.getSwitchDetails(dpid);
       if (requestVersion.current === version) setDetails(res);
     } catch (e) {
+      if (requestVersion.current === version) setError(e instanceof Error ? e.message : String(e));
       console.error('Failed to get switch info', e);
     } finally {
       if (requestVersion.current === version) setLoading(false);
@@ -43,15 +47,16 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
     return () => { ++requestVersion.current; };
   }, [node]);
 
-  if (!node || node.type !== 'switch') return null;
+  if (!node) return null;
+  if (node.type === 'host') return <InspectorDrawer title={`Host ${node.name}`} onClose={onClose}><header className="panel-heading"><h2>Host {node.name}</h2><button className="button button-quiet" onClick={onClose} aria-label="Close inspector"><X size={16}/></button></header><dl className="panel-body host-details"><dt>IP address</dt><dd>{node.ip ?? 'N/A'}</dd><dt>MAC address</dt><dd>{node.mac ?? 'N/A'}</dd><dt>Reported interfaces</dt><dd>{Object.keys(node.ports ?? {}).join(', ') || 'N/A'}</dd></dl></InspectorDrawer>;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+    <InspectorDrawer title="Datapath inspector" onClose={onClose}>
+      <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+            <div className="w-10 h-10 rounded-md bg-blue-500/20 text-accent flex items-center justify-center border border-blue-500/30">
               <Network className="w-5 h-5" />
             </div>
             <div>
@@ -68,10 +73,11 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
               title="Refresh Switch Tables"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-accent' : ''}`} />
             </button>
             <button
               onClick={onClose}
+            aria-label="Close inspector"
               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
             >
               <X className="w-4 h-4" />
@@ -85,7 +91,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             onClick={() => setActiveTab('flows')}
             className={`flex items-center space-x-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
               activeTab === 'flows'
-                ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                ? 'border-blue-500 text-accent bg-blue-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -96,7 +102,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             onClick={() => setActiveTab('groups')}
             className={`flex items-center space-x-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
               activeTab === 'groups'
-                ? 'border-cyan-500 text-cyan-400 bg-cyan-500/10'
+                ? 'border-cyan-500 text-accent bg-cyan-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -118,7 +124,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto font-mono text-xs text-slate-300 flex-1 bg-slate-950/40">
-          {loading ? (
+          {error ? <div role="alert" className="inspector-error">Unable to inspect this datapath: {error}. Use Refresh Switch Tables to retry.</div> : loading ? (
             <div className="flex items-center justify-center py-12 text-slate-500">
               <RefreshCw className="w-5 h-5 animate-spin mr-2" />
               <span>Querying Open vSwitch daemon...</span>
@@ -127,7 +133,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             <div className="space-y-2">
               {details?.flows.length ? (
                 details.flows.map((flow, i) => (
-                  <div key={i} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 break-all text-[11px]">
+                  <div key={i} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 break-all text-xs">
                     {flow}
                   </div>
                 ))
@@ -139,7 +145,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             <div className="space-y-2">
               {details?.groups.length ? (
                 details.groups.map((group, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-slate-900 border border-cyan-500/30 text-cyan-300 break-all text-[11px] shadow-sm">
+                  <div key={i} className="p-3 rounded-lg bg-slate-900 border border-cyan-500/30 text-accent break-all text-xs ">
                     {group}
                   </div>
                 ))
@@ -153,7 +159,7 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
             <div className="space-y-2">
               {details?.ports.length ? (
                 details.ports.map((port, i) => (
-                  <div key={i} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
+                  <div key={i} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
                     {port}
                   </div>
                 ))
@@ -164,6 +170,6 @@ export const SwitchInspectorModal: React.FC<SwitchInspectorModalProps> = ({ node
           )}
         </div>
       </div>
-    </div>
+    </InspectorDrawer>
   );
 };
