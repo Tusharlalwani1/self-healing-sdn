@@ -91,7 +91,7 @@ try {
   assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true);await screenshot('landing-mobile');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
   await cdp('Page.navigate',{url:base+'/dashboard'});await delay(2000);
-  await waitFor('document.querySelectorAll(".controller-picker option").length===4');
+  await waitFor(`document.querySelectorAll('select[aria-label="Active controller"] option').length===4`);
   await waitFor('document.querySelector(".socket-status")?.innerText.includes("CONNECTED")');
   evidence.checks.push('Three actual controller options loaded and WebSocket connected');
   const pages={overview:'Network at a glance',topology:'Network inspector',controllers:'Choose a recovery strategy',traffic:'Traffic monitor',simulator:'Test a broken path',experiment:'Experiment lab',analytics:'Performance analytics',logs:'Event timeline',settings:'System & configuration'};

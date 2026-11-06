@@ -1,12 +1,15 @@
 import csv
 import io
 import json
+from html import escape
 from typing import Dict, Any, List
 from backend.services.metrics import experiment_metrics, TIMING_SCOPE
 
 
 def export_record(record):
-    return {**experiment_metrics(record), "metric_semantics": {"recovery_duration_ms": TIMING_SCOPE,
+    return {**experiment_metrics(record), "topology_id": record.get("summary", {}).get("topology_id"),
+            "topology_label": record.get("summary", {}).get("topology_label"),
+            "metric_semantics": {"recovery_duration_ms": TIMING_SCOPE,
             "packet_level_outage": "Not measured", "local_ff_switching_time": "Not measured"}}
 
 
@@ -23,7 +26,7 @@ class ReportGenerator:
     def generate_csv(experiments: List[Dict[str, Any]]) -> str:
         output = io.StringIO()
         fieldnames = [
-            "id", "controller", "status", "start_time", "end_time",
+            "id", "controller", "topology_id", "topology_label", "status", "start_time", "end_time",
             "packets_transmitted", "packets_received", "packet_loss_percent",
             "avg_rtt_ms", "min_rtt_ms", "max_rtt_ms", "failure_link",
             "recovery_event", "controller_processing_ms", "timing_scope"
@@ -32,6 +35,8 @@ class ReportGenerator:
         writer.writeheader()
         for exp in experiments:
             row = experiment_metrics(exp)
+            row["topology_id"] = exp.get("summary", {}).get("topology_id")
+            row["topology_label"] = exp.get("summary", {}).get("topology_label")
             row["controller_processing_ms"] = row.get("recovery_duration_ms")
             row["timing_scope"] = TIMING_SCOPE
             writer.writerow({key: "N/A" if row.get(key) is None else row[key] for key in fieldnames})
@@ -72,7 +77,7 @@ class ReportGenerator:
 <body>
     <div class="header">
         <h1>Self-Healing SDN Performance Report</h1>
-        <div class="meta">Experiment ID: <strong>{experiment.get('id')}</strong> | Date: {experiment.get('start_time')}</div>
+        <div class="meta">Experiment ID: <strong>{experiment.get('id')}</strong> | Date: {experiment.get('start_time')} | Topology: {escape(experiment.get('summary', {}).get('topology_label') or 'Not recorded')}</div>
     </div>
 
     <div class="grid">

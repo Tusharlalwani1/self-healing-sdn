@@ -3,12 +3,17 @@ from fastapi import APIRouter, HTTPException
 from backend.models.schemas import ExperimentRunRequest
 from backend.services.experiment_runner import experiment_runner
 from backend.database.db import get_experiments, get_experiment_by_id, delete_experiment_by_id
+from backend.services.runtime_control import runtime_transition_lock
+from backend.services.operation_error import OperationError
 
 router = APIRouter(prefix="/api/experiments", tags=["Experiments"], route_class=RuntimeRoute)
 
 @router.post("/run")
 async def run_experiment(req: ExperimentRunRequest):
+    if runtime_transition_lock.locked():
+        raise OperationError(409, "Wait for the current runtime transition before starting an experiment")
     return await experiment_runner.run_experiment(
+        topology_id=req.topology_id,
         controller_type=req.controller,
         traffic_interval=req.traffic_interval,
         packet_count=req.packet_count,

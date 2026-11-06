@@ -1,21 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { LandingPage } from './pages/LandingPage';
-import { dashboardPages, dashboardPath, tabFromPath } from './services/navigation';
-import { useSDNStore } from './stores/sdnStore';
-import { wsService } from './services/websocket';
+import React, { useEffect, useState } from "react";
+import { LandingPage } from "./pages/LandingPage";
+import {
+  dashboardPages,
+  dashboardPath,
+  tabFromPath,
+} from "./services/navigation";
+import { useSDNStore } from "./stores/sdnStore";
+import { useTopologySelectionStore } from "./stores/topologySelectionStore";
+import { wsService } from "./services/websocket";
 
-import { Sidebar } from './components/Sidebar';
-import { TopNavbar } from './components/TopNavbar';
+import { Sidebar } from "./components/Sidebar";
+import { TopNavbar } from "./components/TopNavbar";
 
-import { OverviewView } from './pages/OverviewView';
-import { TopologyView } from './pages/TopologyView';
-import { ControllersView } from './pages/ControllersView';
-import { TrafficView } from './pages/TrafficView';
-import { FailureSimulatorView } from './pages/FailureSimulatorView';
-import { ExperimentLabView } from './pages/ExperimentLabView';
-import { AnalyticsView } from './pages/AnalyticsView';
-import { EventLogsView } from './pages/EventLogsView';
-import { SettingsView } from './pages/SettingsView';
+import { OverviewView } from "./pages/OverviewView";
+import { TopologyView } from "./pages/TopologyView";
+import { ControllersView } from "./pages/ControllersView";
+import { TrafficView } from "./pages/TrafficView";
+import { FailureSimulatorView } from "./pages/FailureSimulatorView";
+import { ExperimentLabView } from "./pages/ExperimentLabView";
+import { AnalyticsView } from "./pages/AnalyticsView";
+import { EventLogsView } from "./pages/EventLogsView";
+import { SettingsView } from "./pages/SettingsView";
 
 const Dashboard: React.FC = () => {
   const {
@@ -26,12 +31,13 @@ const Dashboard: React.FC = () => {
     fetchSystemStatus,
     fetchTrafficStats,
     simulationState,
-    error
+    error,
   } = useSDNStore();
 
   useEffect(() => {
     // Connect live WebSocket stream
     wsService.connect();
+    useTopologySelectionStore.getState().fetchOptions();
 
     // Initial data hydration
     fetchSystemStatus();
@@ -43,7 +49,7 @@ const Dashboard: React.FC = () => {
     const interval = setInterval(() => {
       fetchControllers();
       fetchTopology();
-      if (simulationState === 'RUNNING') {
+      if (simulationState === "RUNNING") {
         fetchTrafficStats();
       }
     }, 3000);
@@ -56,23 +62,23 @@ const Dashboard: React.FC = () => {
 
   const renderActiveView = () => {
     switch (currentTab) {
-      case 'overview':
+      case "overview":
         return <OverviewView />;
-      case 'topology':
+      case "topology":
         return <TopologyView />;
-      case 'controllers':
+      case "controllers":
         return <ControllersView />;
-      case 'traffic':
+      case "traffic":
         return <TrafficView />;
-      case 'simulator':
+      case "simulator":
         return <FailureSimulatorView />;
-      case 'experiment':
+      case "experiment":
         return <ExperimentLabView />;
-      case 'analytics':
+      case "analytics":
         return <AnalyticsView />;
-      case 'logs':
+      case "logs":
         return <EventLogsView />;
-      case 'settings':
+      case "settings":
         return <SettingsView />;
       default:
         return <OverviewView />;
@@ -81,7 +87,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard-shell">
-      <a className="skip-link" href="#workspace-content">Skip to workspace</a>
+      <a className="skip-link" href="#workspace-content">
+        Skip to workspace
+      </a>
       {/* Persistent Left Sidebar */}
       <Sidebar />
 
@@ -89,13 +97,24 @@ const Dashboard: React.FC = () => {
       <div className="workspace">
         {/* Persistent Top Navigation Bar */}
         <TopNavbar />
-        {error && <div role="alert" className="global-error">
-          {error} <button onClick={() => useSDNStore.setState({ error: null })}>Dismiss</button>
-        </div>}
+        {error && (
+          <div role="alert" className="global-error">
+            {error}{" "}
+            <button onClick={() => useSDNStore.setState({ error: null })}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Scrollable Page Body */}
-        <main id="workspace-content" className="workspace-content" tabIndex={-1}>
-          <div key={currentTab} className="page-transition">{renderActiveView()}</div>
+        <main
+          id="workspace-content"
+          className="workspace-content"
+          tabIndex={-1}
+        >
+          <div key={currentTab} className="page-transition">
+            {renderActiveView()}
+          </div>
         </main>
       </div>
     </div>
@@ -112,23 +131,43 @@ export const App: React.FC = () => {
       setPath(pathname);
     };
     sync();
-    window.addEventListener('popstate', sync);
+    window.addEventListener("popstate", sync);
     const unsubscribe = useSDNStore.subscribe((state, previous) => {
-      if (state.currentTab !== previous.currentTab && tabFromPath(window.location.pathname)) {
+      if (
+        state.currentTab !== previous.currentTab &&
+        tabFromPath(window.location.pathname)
+      ) {
         const next = dashboardPath(state.currentTab);
-        if (next !== window.location.pathname) window.history.pushState(null, '', next);
+        if (next !== window.location.pathname)
+          window.history.pushState(null, "", next);
         setPath(next);
         document.title = `${dashboardPages[state.currentTab]} · Self-Healing SDN`;
-        document.querySelector('main')?.scrollTo(0, 0);
+        document.querySelector("main")?.scrollTo(0, 0);
       }
     });
-    return () => { window.removeEventListener('popstate', sync); unsubscribe(); };
+    return () => {
+      window.removeEventListener("popstate", sync);
+      unsubscribe();
+    };
   }, []);
   const tab = tabFromPath(path);
-  useEffect(() => { document.title = tab ? `${dashboardPages[tab]} · Self-Healing SDN` : 'Self-Healing SDN · Network resilience, made visible'; }, [tab]);
-  if (path === '/') return <LandingPage/>;
-  if (!tab) return <div className="route-empty"><h1>Page not found</h1><p>This workspace URL does not exist.</p><a className="button button-primary" href="/dashboard">Open control center</a></div>;
-  return <Dashboard/>;
+  useEffect(() => {
+    document.title = tab
+      ? `${dashboardPages[tab]} · Self-Healing SDN`
+      : "Self-Healing SDN · Network resilience, made visible";
+  }, [tab]);
+  if (path === "/") return <LandingPage />;
+  if (!tab)
+    return (
+      <div className="route-empty">
+        <h1>Page not found</h1>
+        <p>This workspace URL does not exist.</p>
+        <a className="button button-primary" href="/dashboard">
+          Open control center
+        </a>
+      </div>
+    );
+  return <Dashboard />;
 };
 
 export default App;

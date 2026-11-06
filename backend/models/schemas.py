@@ -17,6 +17,7 @@ class ControllerSelectRequest(BaseModel):
 
 class SimulationStartRequest(BaseModel):
     controller_type: Optional[Literal["baseline", "reactive", "fast_failover"]] = None
+    topology_id: Optional[Literal["diamond", "multipath_mesh"]] = None
 
 class NodeInfo(BaseModel):
     id: str
@@ -41,6 +42,9 @@ class LinkInfo(BaseModel):
     last_changed: Optional[float] = None
 
 class TopologyResponse(BaseModel):
+    topology_id: Optional[str] = None
+    topology_label: Optional[str] = None
+    active_topology_id: Optional[str] = None
     runtime_id: Optional[str] = None
     runtime_revision: Optional[int] = None
     nodes: List[NodeInfo]
@@ -49,7 +53,7 @@ class TopologyResponse(BaseModel):
     hosts: List[str]
     active_controller: Optional[str] = None
     simulation_state: str = "STOPPED"
-    active_paths: List[List[str]] = []
+    active_paths: List[List[str]] = Field(default_factory=list, description="Verified dataplane paths only; empty when unavailable. Controller-computed paths are not proof of forwarding.")
     backup_paths: List[List[str]] = []
 
 class LinkActionRequest(BaseModel):
@@ -85,6 +89,7 @@ class TrafficStats(BaseModel):
     history: List[Dict[str, Any]] = []
 
 class ExperimentRunRequest(BaseModel):
+    topology_id: Optional[Literal["diamond", "multipath_mesh"]] = None
     run_id: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
     controller: Literal["baseline", "reactive", "fast_failover", "comparison"] = "reactive"
     traffic_interval: float = Field(0.02, gt=0, allow_inf_nan=False)

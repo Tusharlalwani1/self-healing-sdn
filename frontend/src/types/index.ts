@@ -1,6 +1,18 @@
-export type ControllerType = 'baseline' | 'reactive' | 'fast_failover';
-export type SimulationState = 'STOPPED' | 'STARTING' | 'RUNNING' | 'STOPPING' | 'ERROR';
-export type ControllerStatus = 'NOT_SELECTED' | 'STARTING' | 'READY' | 'FAILED' | 'STOPPED';
+export type ControllerType = "baseline" | "reactive" | "fast_failover";
+export type TopologyId = "diamond" | "multipath_mesh";
+export interface TopologyOption {
+  id: TopologyId;
+  label: string;
+  switch_count: number;
+  host_count: number;
+  switches: string[];
+  inter_switch_links: [string, string][];
+  host_links: [string, string][];
+}
+export type SimulationState =
+  "STOPPED" | "STARTING" | "RUNNING" | "STOPPING" | "ERROR";
+export type ControllerStatus =
+  "NOT_SELECTED" | "STARTING" | "READY" | "FAILED" | "STOPPED";
 
 export interface ControllerInfo {
   id: ControllerType;
@@ -24,7 +36,7 @@ export interface NodePort {
 export interface TopologyNode {
   id: string;
   name: string;
-  type: 'switch' | 'host';
+  type: "switch" | "host";
   dpid?: number;
   ip?: string;
   mac?: string;
@@ -39,13 +51,16 @@ export interface TopologyLink {
   dst_intf: string;
   src_port?: number;
   dst_port?: number;
-  status: 'UP' | 'DOWN';
+  status: "UP" | "DOWN";
   bw?: number | null;
   delay?: string | null;
   last_changed?: number;
 }
 
 export interface TopologyResponse {
+  topology_id?: TopologyId | null;
+  topology_label?: string | null;
+  active_topology_id?: TopologyId | null;
   runtime_id?: string;
   runtime_revision?: number;
   nodes: TopologyNode[];
@@ -54,6 +69,7 @@ export interface TopologyResponse {
   hosts: string[];
   active_controller?: ControllerType | null;
   simulation_state: SimulationState;
+  /** Verified dataplane paths only. Empty means unavailable, not disconnected. */
   active_paths: string[][];
   backup_paths: string[][];
 }
@@ -91,7 +107,7 @@ export interface ExperimentRecord {
   controller: string;
   start_time: string;
   end_time?: string;
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
   packets_transmitted: number | null;
   packets_received: number | null;
   packet_loss_percent: number | null;
@@ -108,8 +124,8 @@ export interface ExperimentRecord {
 export interface EventLogEntry {
   id?: number;
   timestamp: number;
-  level: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
-  source: 'CONTROLLER' | 'MININET' | 'EXPERIMENT' | 'SYSTEM' | 'TRAFFIC';
+  level: "INFO" | "WARNING" | "ERROR" | "SUCCESS";
+  source: "CONTROLLER" | "MININET" | "EXPERIMENT" | "SYSTEM" | "TRAFFIC";
   message: string;
   details?: Record<string, any>;
 }

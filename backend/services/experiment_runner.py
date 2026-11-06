@@ -10,6 +10,7 @@ from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
 from backend.services.operation_error import OperationError, public_error
 from backend.services.metrics import PERFORMANCE_FIELDS, TIMING_SCOPE
+from backend.services.topology_catalog import topology_definition
 from backend.websocket.manager import ws_manager
 
 logger = logging.getLogger("sdn.experiment")
@@ -106,8 +107,11 @@ class ExperimentRunner:
         fail_src: str = "s1",
         fail_dst: str = "s2",
         repetitions: int = 1,
-        run_id: Optional[str] = None
+        run_id: Optional[str] = None,
+        topology_id: Optional[str] = None
     ) -> Dict[str, Any]:
+        topology_id = topology_id or mininet_client.topology_id
+        definition = topology_definition(topology_id)
         exp_id = f"exp_{uuid.uuid4().hex}_{controller_type}"
 
         record: Dict[str, Any] = {
@@ -122,7 +126,7 @@ class ExperimentRunner:
                 "failure_delay": failure_delay_sec
             },
             "failure_link": f"{fail_src}-{fail_dst}",
-            "summary": {}
+            "summary": {"topology_id": topology_id, "topology_label": definition["label"]}
         }
 
         self.current_experiment = record
@@ -140,6 +144,9 @@ class ExperimentRunner:
                 "message": "Preparing network and controller..."
             })
             self._checkpoint()
+            if mininet_client.simulation_state == "RUNNING" and mininet_client.topology_id != topology_id:
+                await self._step(controller_manager.stop_controller())
+                await self._step(mininet_client.stop_simulation())
             # Every run (including the same mode) starts with fresh Ryu memory
             # and the shared, checked dataplane boundary used by the dashboard.
             await self._step(controller_manager.select_controller(controller_type, force_restart=True))
@@ -150,7 +157,7 @@ class ExperimentRunner:
 
             # 2. Ensure Mininet simulation is running
             if mininet_client.simulation_state != "RUNNING":
-                await self._step(mininet_client.start_simulation())
+                await self._step(mininet_client.start_simulation(topology_id=topology_id))
                 await self._sleep(1.5)
 
             runtime_id = mininet_client.runtime_id
@@ -158,7 +165,7 @@ class ExperimentRunner:
                 if (controller_manager.generation != generation or
                     controller_manager.active_controller != controller_type or
                     controller_manager.status != "READY" or mininet_client.runtime_id != runtime_id or
-                    mininet_client.simulation_state != "RUNNING"):
+                    mininet_client.simulation_state != "RUNNING" or mininet_client.topology_id != topology_id):
                     raise OperationError(409, "Experiment runtime or controller changed")
             check_context()
             if mininet_client.experiment_id not in (None, exp_id):
@@ -365,7 +372,8 @@ class ExperimentRunner:
         failure_delay_sec: float = 1.5,
         fail_src: str = "s1",
         fail_dst: str = "s2",
-        run_id: Optional[str] = None
+        run_id: Optional[str] = None,
+        topology_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Runs Baseline, Reactive, and Fast Failover under identical conditions."""
         run_id = run_id or uuid.uuid4().hex
@@ -388,7 +396,7 @@ class ExperimentRunner:
                 packet_count=packet_count,
                 failure_delay_sec=failure_delay_sec,
                 fail_src=fail_src,
-                fail_dst=fail_dst, run_id=uuid.uuid4().hex
+                fail_dst=fail_dst, run_id=uuid.uuid4().hex, topology_id=topology_id
             )
             results.append(res)
             if res["status"] != "COMPLETED":

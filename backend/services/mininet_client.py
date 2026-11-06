@@ -10,6 +10,7 @@ from backend.config import MININET_SOCKET_PATH, BACKEND_DIR
 from backend.websocket.manager import ws_manager
 from backend.database.db import save_event_log
 from backend.services.operation_error import OperationError, public_error, validate_worker_result
+from backend.services.topology_catalog import topology_definition
 
 
 logger = logging.getLogger("sdn.mininet_client")
@@ -29,10 +30,14 @@ class MininetClient:
         self._traffic_owners = {}
         self._runtime_listeners = []
         self.experiment_id = None
+        self.topology_id = "diamond"
         self.simulation_state: str = "STOPPED"  # STOPPED, STARTING, RUNNING, STOPPING, ERROR
 
     def runtime_context(self):
-        return {"runtime_id": self.runtime_id, "runtime_revision": self.runtime_revision}
+        return {"runtime_id": self.runtime_id, "runtime_revision": self.runtime_revision,
+                "topology_id": self.topology_id,
+                "topology_label": topology_definition(self.topology_id)["label"],
+                "active_topology_id": self.topology_id if self.simulation_state == "RUNNING" else None}
 
     def controller_context(self):
         return {"controller": self.controller_type, "controller_generation": self.controller_generation}
@@ -175,9 +180,18 @@ class MininetClient:
     async def _start_simulation(
         self,
         controller_ip="127.0.0.1",
-        controller_port=6653
+        controller_port=6653,
+        topology_id=None
     ) -> Dict[str, Any]:
 
+        topology_id = topology_id or self.topology_id
+        try:
+            topology_definition(topology_id)
+        except ValueError as exc:
+            raise OperationError(422, str(exc)) from exc
+        if self.experiment_id:
+            raise OperationError(409, "Cannot replace an experiment-owned runtime")
+        self.topology_id = topology_id
         self.runtime_id = uuid.uuid4().hex
         self.runtime_revision += 1
         self._notify_runtime()
@@ -196,16 +210,23 @@ class MininetClient:
                 "command": "start",
                 "controller_ip": controller_ip,
                 "controller_port": controller_port,
+                "topology_id": topology_id,
                 **self.runtime_context()
-            }, timeout=20.0)
+            }, timeout=45.0 if topology_id == "multipath_mesh" else 20.0)
 
             if res.get("status") == "ok":
+                if res.get("topology_id") != topology_id:
+                    try:
+                        await self._send_command({"command": "stop"}, timeout=30.0)
+                    except Exception as cleanup_error:
+                        raise OperationError(502, "Worker topology was not confirmed; cleanup is also unconfirmed") from cleanup_error
+                    raise OperationError(502, "Mininet worker did not confirm the requested topology")
                 self.simulation_state = "RUNNING"
 
                 save_event_log(
                     "SUCCESS",
                     "MININET",
-                    "Mininet network started and connected to controller"
+                    f"Mininet {topology_id} network started and connected to controller", self.runtime_context()
                 )
 
                 await ws_manager.broadcast({
@@ -269,7 +290,7 @@ class MininetClient:
         try:
             res = await self._send_command(
                 {"command": "stop"},
-                timeout=10.0
+                timeout=30.0 if self.topology_id == "multipath_mesh" else 10.0
             )
 
             self.simulation_state = "STOPPED"
@@ -307,11 +328,13 @@ class MininetClient:
 
     async def get_topology(self) -> Dict[str, Any]:
         if not os.path.exists(self.socket_path) and self.simulation_state == "STOPPED":
-            return {"status": "not_running", "nodes": [], "links": []}
-        result = await self._send_command({"command": "get_topology"}, timeout=5.0)
+            return {"status": "not_running", "nodes": [], "links": [], **self.runtime_context()}
+        result = await self._send_command({"command": "get_topology"}, timeout=15.0)
         if result.get("status") == "not_running" and self.simulation_state == "RUNNING":
             raise OperationError(409, "Mininet network is not running; runtime state is inconsistent")
-        return result
+        if self.simulation_state == "RUNNING" and result.get("topology_id", self.topology_id) != self.topology_id:
+            raise OperationError(409, "Worker topology differs from the requested runtime")
+        return {**result, **self.runtime_context(), "simulation_state": self.simulation_state}
 
     async def reset_dataplane(self) -> Dict[str, Any]:
         """Require a confirmed worker reset before a replacement Ryu starts."""
@@ -334,6 +357,52 @@ class MininetClient:
         if self.simulation_state != "STOPPED" and not res.get("switches"):
             raise OperationError(502, "Dataplane reset failed: worker has no active switches")
         return res
+
+    async def restore_all_links(self) -> Dict[str, Any]:
+        # Hold ownership across discovery and mutations: a new runtime must not
+        # inherit link identities from the snapshot of the previous topology.
+        async with self._runtime_lock:
+            if self.experiment_id:
+                raise OperationError(409, "Link controls are owned by the active experiment")
+            if self.simulation_state != "RUNNING":
+                raise OperationError(409, "Network is not running")
+            topo = await self.get_topology()
+            links = topo.get("links")
+            if not isinstance(links, list) or not links:
+                raise OperationError(502, "Cannot restore links: runtime link inventory is unavailable")
+            seen = set()
+            for link in links:
+                if (not isinstance(link, dict) or not isinstance(link.get("src"), str) or
+                    not isinstance(link.get("dst"), str) or not link["src"] or not link["dst"] or
+                    link["src"] == link["dst"] or link.get("status") not in ("UP", "DOWN")):
+                    raise OperationError(502, "Cannot restore links: invalid runtime link inventory")
+                pair = frozenset((link["src"], link["dst"]))
+                if pair in seen:
+                    raise OperationError(502, "Cannot restore links: duplicate runtime link identity")
+                seen.add(pair)
+
+            results = []
+            for link in links:
+                n1, n2 = link["src"], link["dst"]
+                if link["status"] == "UP":
+                    results.append({"node1": n1, "node2": n2, "status": "ok", "action": "already_up"})
+                    continue
+                try:
+                    res = await self._set_link_status(n1, n2, "up")
+                    results.append({"node1": n1, "node2": n2, "status": "ok",
+                                    "action": "restored", "result": res})
+                except Exception as exc:
+                    results.append({"node1": n1, "node2": n2, "status": "error",
+                                    "http_status": exc.status_code if isinstance(exc, OperationError) else 500,
+                                    "message": public_error(exc)})
+            failed = [r for r in results if r["status"] == "error"]
+            if failed:
+                codes = {r["http_status"] for r in failed}
+                code = next(iter(codes)) if len(failed) == len(links) and len(codes) == 1 else 502
+                raise OperationError(code, f"Link restoration failed for {len(failed)} of {len(links)} links", results=results)
+            return {"status": "ok", "message": "All runtime links are UP", **self.runtime_context(),
+                    "link_count": len(links), "restored_count": sum(r.get("action") == "restored" for r in results),
+                    "already_up_count": sum(r.get("action") == "already_up" for r in results), "results": results}
 
     async def set_link_status(
         self,

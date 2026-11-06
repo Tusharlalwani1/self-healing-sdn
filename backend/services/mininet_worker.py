@@ -22,9 +22,11 @@ from typing import Dict, Any, Optional
 if __package__:
     from .ping_accounting import PingAccounting
     from .operation_error import OperationError, public_error, safe_message
+    from .topology_catalog import TOPOLOGIES, topology_definition, populate_network
 else:
     from ping_accounting import PingAccounting
     from operation_error import OperationError, public_error, safe_message
+    from topology_catalog import TOPOLOGIES, topology_definition, populate_network
 
 # Mininet imports
 try:
@@ -50,48 +52,46 @@ class MininetWorker:
         self.traffic_lock = threading.Lock()
         self.running = True
         self.runtime_id = None
+        self.topology_id = None
 
     @staticmethod
     def _clean_simulation_resources():
         """Clean only simulation bridges and links without killing ryu-manager or other processes."""
-        for sw in ['s1', 's2', 's3', 's4']:
+        for sw in sorted({name for definition in TOPOLOGIES.values() for name in definition['switches']}):
             subprocess.run(["ovs-vsctl", "--if-exists", "del-br", sw], capture_output=True, check=True, timeout=5)
 
-    def build_network(self, controller_ip="127.0.0.1", controller_port=6653, runtime_id=None):
+    def build_network(self, controller_ip="127.0.0.1", controller_port=6653, runtime_id=None, topology_id="diamond"):
+        try:
+            definition = topology_definition(topology_id)
+        except ValueError as exc:
+            raise OperationError(400, str(exc)) from exc
         if Mininet is None:
             raise RuntimeError("Mininet library is not installed in current Python environment")
 
         if self.net is not None:
             self.stop_network()
 
-        logger.info(f"Building diamond topology connecting to controller {controller_ip}:{controller_port}")
+        logger.info(f"Building {topology_id} topology connecting to controller {controller_ip}:{controller_port}")
         self._clean_simulation_resources()
 
         net = Mininet(controller=None, switch=OVSSwitch, link=TCLink, autoSetMacs=True)
-        net.addController('c0', controller=RemoteController, ip=controller_ip, port=controller_port)
-
-        s1 = net.addSwitch('s1', protocols='OpenFlow13')
-        s2 = net.addSwitch('s2', protocols='OpenFlow13')
-        s3 = net.addSwitch('s3', protocols='OpenFlow13')
-        s4 = net.addSwitch('s4', protocols='OpenFlow13')
-
-        h1 = net.addHost('h1', ip='10.0.0.1/24')
-        h2 = net.addHost('h2', ip='10.0.0.2/24')
-
-        # Add physical links matching topo_diamond.py
-        net.addLink(h1, s1)
-        net.addLink(h2, s4)
-        net.addLink(s1, s2, bw=10, delay='5ms')
-        net.addLink(s2, s4, bw=10, delay='5ms')
-        net.addLink(s1, s3, bw=10, delay='5ms')
-        net.addLink(s3, s4, bw=10, delay='5ms')
-
-        logger.info("Starting Mininet network...")
-        net.start()
+        try:
+            net.addController('c0', controller=RemoteController, ip=controller_ip, port=controller_port)
+            populate_network(net, topology_id)
+            logger.info("Starting Mininet network...")
+            net.start()
+        except Exception:
+            # Retain the partially constructed object if cleanup fails so a
+            # later checked stop can retry. Never construct a fallback topology.
+            self.net = net
+            self.stop_network()
+            raise
         self.net = net
         self.runtime_id = runtime_id
+        self.topology_id = topology_id
         logger.info("Mininet network started successfully!")
-        return {"status": "ok", "message": "Mininet network started"}
+        return {"status": "ok", "message": "Mininet network started", "topology_id": topology_id,
+                "topology_label": definition["label"]}
 
     def stop_network(self):
         logger.info("Stopping Mininet network...")
@@ -110,6 +110,7 @@ class MininetWorker:
             self.net = None
 
         self._clean_simulation_resources()
+        self.topology_id = None
         logger.info("Mininet network stopped and cleaned up.")
         return {"status": "ok", "message": "Network stopped", "traffic_stats": finals}
 
@@ -179,6 +180,7 @@ class MininetWorker:
 
         return {
             "status": "ok",
+            "topology_id": self.topology_id,
             "switches": [s.name for s in self.net.switches],
             "hosts": [h.name for h in self.net.hosts],
             "nodes": nodes,
@@ -476,7 +478,7 @@ class MininetWorker:
                 if cmd == "start":
                     resp = self.build_network(
                         req.get("controller_ip", "127.0.0.1"),
-                        req.get("controller_port", 6653), req.get("runtime_id")
+                        req.get("controller_port", 6653), req.get("runtime_id"), req.get("topology_id", "diamond")
                     )
                 elif cmd == "stop":
                     resp = self.stop_network()

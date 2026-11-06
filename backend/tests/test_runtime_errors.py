@@ -75,6 +75,8 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
         if isinstance(self.reply, bytes):
             return self.reply
         reply = dict(self.reply)
+        if self.command == "start" and reply.get("status") != "error":
+            reply["topology_id"] = self.payload["topology_id"]
         if self.command in ("start_traffic", "stop_traffic", "get_traffic_stats") and reply.get("status") != "error":
             owner = self.client._traffic_owners.get(self.payload["job_id"], self.payload)
             reply.update({key: owner.get(key) for key in ("job_id", "runtime_id", "experiment_id", "controller_generation")})
@@ -135,7 +137,12 @@ class RuntimeHTTPTests(unittest.IsolatedAsyncioTestCase):
                 self.reply = ({"status": "error", "message": "Link restoration failed"}
                               if payload["node1"] == "s2" else {"status": "ok"})
         self.writer.write.side_effect = write
-        status, data = await self.post("/api/links/restore-all")
+        # The inventory, not a route constant, determines which links are used.
+        inventory = [("h1", "s1"), ("h2", "s4"), ("s1", "s2"),
+                     ("s2", "s4"), ("s1", "s3"), ("s3", "s4")]
+        with patch.object(self.client, "get_topology", new_callable=AsyncMock,
+                          return_value={"links": [{"src": a, "dst": b, "status": "DOWN"} for a, b in inventory]}):
+            status, data = await self.post("/api/links/restore-all")
         self.assertEqual(status, 502)
         results = data["detail"]["results"]
         self.assertEqual(sum(r["status"] == "ok" for r in results), 5)
