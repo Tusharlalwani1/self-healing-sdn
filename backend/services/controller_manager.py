@@ -28,6 +28,8 @@ class ControllerManager:
         self.failure_reason: Optional[str] = None
         self._stopping_process = None
         self.recent_logs: List[str] = []
+        # Reserved for verified dataplane paths. Controller logs alone cannot
+        # establish these (including HEALED / FF recomputation messages).
         self.active_paths: List[List[str]] = []
         self.routes_summary: Dict[str, Any] = {}
         self.last_recovery_event: Optional[Dict[str, Any]] = None
@@ -365,6 +367,7 @@ class ControllerManager:
 
     async def _handle_parsed_event(self, event: Dict[str, Any]):
         event = {**event, "controller_generation": self.generation,
+                 "topology_id": mininet_client.topology_id,
                  "runtime_id": mininet_client.runtime_id, "experiment_id": mininet_client.experiment_id,
                  "event_received_at": time.time()}
         failure = self.last_link_failure
@@ -373,19 +376,11 @@ class ControllerManager:
             failure.get("experiment_id") == mininet_client.experiment_id):
             event["failure_link"] = [failure["src"], failure["dst"]]
         ev_type = event.get("type")
-        if ev_type == "ACTIVE_PATH":
-            self.active_paths = [event["path"]]
-            save_event_log("INFO", "CONTROLLER", f"Active forwarding path: {' -> '.join(event['path'])}", event)
-            await ws_manager.broadcast({
-                "event_type": "PATH_ACTIVE",
-                "path": event["path"],
-                "src": event["src"],
-                "dst": event["dst"],
-                "timestamp": time.time()
-            })
+        if ev_type == "PATH_COMPUTED":
+            save_event_log("INFO", "CONTROLLER",
+                           f"Computed path {event['src']} -> {event['dst']} (forwarding unverified): {' -> '.join(event['path'])}", event)
         elif ev_type == "HEALED":
             self.last_recovery_event = event
-            self.active_paths = [event["new_path"]]
             save_event_log("SUCCESS", "CONTROLLER", f"Reactive controller processing {event['duration_ms']:.1f}ms: {' -> '.join(event['old_path'])} to {' -> '.join(event['new_path'])}", event)
             await ws_manager.broadcast({
                 "event_type": "HEALED",

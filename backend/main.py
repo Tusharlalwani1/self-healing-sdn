@@ -93,7 +93,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
             **mininet_client.runtime_context(),
             "traffic": traffic_service.snapshot(),
             "experiment_run_id": experiment_runner.current_run_id,
-            "active_paths": controller_manager.active_paths,
+            "active_paths": [],  # Controller log intent is not verified forwarding.
             "timestamp": time.time()
         })
         while True:

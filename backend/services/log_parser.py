@@ -65,12 +65,13 @@ class RyuLogParser:
                 "raw": line
             }
 
-        # Check ACTIVE PATH
+        # A PacketIn shortest-path calculation, logged BEFORE flow installation.
+        # This is directional controller intent, not observed forwarding state.
         m = cls.PATH_PATTERN.search(line)
         if m:
             path = [s.strip(" '\"") for s in m.group("path").split(",")]
             return {
-                "type": "ACTIVE_PATH",
+                "type": "PATH_COMPUTED",
                 "src": m.group("src"),
                 "dst": m.group("dst"),
                 "path": path,

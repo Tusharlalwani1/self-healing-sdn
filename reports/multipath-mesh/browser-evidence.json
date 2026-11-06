@@ -1,0 +1,60 @@
+{
+  "fixture": true,
+  "checks": [
+    "Mesh selection persists across navigation; explicit mesh + Reactive request; 9 switches / 2 hosts / 16 edges render",
+    "Native s9/h2 inspection, Escape, dynamic 16-link failure inventory, exact s6-s9 mutation and restore styling",
+    "Experiment failure selector has 14 actual ISLs; mesh request/provenance retained; analytics topology filter works",
+    "Stop → Diamond + Baseline renders 4 switches / 6 links without stale mesh nodes or edges"
+  ],
+  "requests": [
+    {
+      "path": "/api/simulation/start",
+      "body": {
+        "controller_type": "reactive",
+        "topology_id": "multipath_mesh"
+      }
+    },
+    {
+      "path": "/api/links/down",
+      "body": {
+        "node1": "s6",
+        "node2": "s9"
+      }
+    },
+    {
+      "path": "/api/links/restore-all",
+      "body": {}
+    },
+    {
+      "path": "/api/experiments/run",
+      "body": {
+        "controller": "reactive",
+        "topology_id": "multipath_mesh",
+        "packet_count": 300,
+        "traffic_interval": 0.02,
+        "failure_delay_sec": 2,
+        "fail_link_src": "s6",
+        "fail_link_dst": "s9",
+        "run_id": "eaa5e248-a4fb-4023-b4b1-275c4d1ad9de"
+      }
+    },
+    {
+      "path": "/api/simulation/stop",
+      "body": {}
+    },
+    {
+      "path": "/api/controllers/select",
+      "body": {
+        "controller_type": "baseline"
+      }
+    },
+    {
+      "path": "/api/simulation/start",
+      "body": {
+        "controller_type": "baseline",
+        "topology_id": "diamond"
+      }
+    }
+  ],
+  "consoleErrors": []
+}

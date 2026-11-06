@@ -1,51 +1,102 @@
-import type { ControllerType, SimulationState, TopologyResponse } from '../types';
+import type {
+  ControllerType,
+  SimulationState,
+  TopologyResponse,
+} from "../types";
 
 export function emptyTopology(): TopologyResponse {
   return {
-    nodes: [], links: [], switches: [], hosts: [],
+    nodes: [],
+    links: [],
+    switches: [],
+    hosts: [],
+    topology_id: null,
+    topology_label: null,
+    active_topology_id: null,
     active_controller: null,
-    simulation_state: 'STOPPED',
-    active_paths: [], backup_paths: [],
+    simulation_state: "STOPPED",
+    active_paths: [],
+    backup_paths: [],
   };
 }
 
 function arrayOrPrevious<T>(value: unknown, previous: T[]): T[] {
-  return Array.isArray(value) ? value : (Array.isArray(previous) ? previous : []);
+  return Array.isArray(value) ? value : Array.isArray(previous) ? previous : [];
 }
 
 function isPaths(value: unknown): value is string[][] {
-  return Array.isArray(value) && value.every(
-    (path) => Array.isArray(path) && path.every((node) => typeof node === 'string'),
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (path) =>
+        Array.isArray(path) && path.every((node) => typeof node === "string"),
+    )
   );
 }
 
 function pathsOrPrevious(value: unknown, previous: string[][]): string[][] {
-  return isPaths(value) ? value : (isPaths(previous) ? previous : []);
+  return isPaths(value) ? value : isPaths(previous) ? previous : [];
 }
 
 /** REST snapshots and worker WS patches share this normalized store contract.
  * Missing/null arrays preserve prior data; explicit [] clears it.
  * A worker's status is not a simulation lifecycle state.
  */
-export function mergeTopology(previous: TopologyResponse, update: unknown): TopologyResponse {
-  const patch = update && typeof update === 'object'
-    ? update as Partial<TopologyResponse> : {};
-  const states: SimulationState[] = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING', 'ERROR'];
-  const controllers: ControllerType[] = ['baseline', 'reactive', 'fast_failover'];
+export function mergeTopology(
+  previous: TopologyResponse,
+  update: unknown,
+): TopologyResponse {
+  const patch =
+    update && typeof update === "object"
+      ? (update as Partial<TopologyResponse>)
+      : {};
+  const states: SimulationState[] = [
+    "STOPPED",
+    "STARTING",
+    "RUNNING",
+    "STOPPING",
+    "ERROR",
+  ];
+  const controllers: ControllerType[] = [
+    "baseline",
+    "reactive",
+    "fast_failover",
+  ];
 
   return {
+    topology_id:
+      patch.topology_id === "diamond" ||
+      patch.topology_id === "multipath_mesh" ||
+      patch.topology_id === null
+        ? patch.topology_id
+        : previous.topology_id,
+    topology_label:
+      typeof patch.topology_label === "string" || patch.topology_label === null
+        ? patch.topology_label
+        : previous.topology_label,
+    active_topology_id:
+      patch.active_topology_id === "diamond" ||
+      patch.active_topology_id === "multipath_mesh" ||
+      patch.active_topology_id === null
+        ? patch.active_topology_id
+        : previous.active_topology_id,
     nodes: arrayOrPrevious(patch.nodes, previous.nodes),
     links: arrayOrPrevious(patch.links, previous.links),
     switches: arrayOrPrevious(patch.switches, previous.switches),
     hosts: arrayOrPrevious(patch.hosts, previous.hosts),
     active_paths: pathsOrPrevious(patch.active_paths, previous.active_paths),
     backup_paths: pathsOrPrevious(patch.backup_paths, previous.backup_paths),
-    simulation_state: patch.simulation_state !== undefined && states.includes(patch.simulation_state)
-      ? patch.simulation_state : previous.simulation_state,
-    active_controller: patch.active_controller === null || (
-      patch.active_controller !== undefined && controllers.includes(patch.active_controller)
-    )
-      ? patch.active_controller : previous.active_controller,
+    simulation_state:
+      patch.simulation_state !== undefined &&
+      states.includes(patch.simulation_state)
+        ? patch.simulation_state
+        : previous.simulation_state,
+    active_controller:
+      patch.active_controller === null ||
+      (patch.active_controller !== undefined &&
+        controllers.includes(patch.active_controller))
+        ? patch.active_controller
+        : previous.active_controller,
   };
 }
 

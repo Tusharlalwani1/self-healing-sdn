@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { createRequestId } from '../services/requestId';
+import { create } from "zustand";
+import { createRequestId } from "../services/requestId";
 import {
   ControllerInfo,
   ControllerType,
@@ -11,22 +11,27 @@ import {
   TrafficStats,
   EventLogEntry,
   SystemStatus,
-  ExperimentRecord
-} from '../types';
-import { api } from '../services/api';
-import { emptyTraffic, acceptTraffic } from '../services/telemetry';
-import { emptyTopology, mergeTopology, mergeTopologySnapshot } from '../services/topology';
+  ExperimentRecord,
+} from "../types";
+import { api } from "../services/api";
+import { emptyTraffic, acceptTraffic } from "../services/telemetry";
+import {
+  emptyTopology,
+  mergeTopology,
+  mergeTopologySnapshot,
+} from "../services/topology";
+import { useTopologySelectionStore } from "./topologySelectionStore";
 
 export type NavigationTab =
-  | 'overview'
-  | 'topology'
-  | 'controllers'
-  | 'traffic'
-  | 'simulator'
-  | 'experiment'
-  | 'analytics'
-  | 'logs'
-  | 'settings';
+  | "overview"
+  | "topology"
+  | "controllers"
+  | "traffic"
+  | "simulator"
+  | "experiment"
+  | "analytics"
+  | "logs"
+  | "settings";
 
 interface SDNState {
   currentTab: NavigationTab;
@@ -81,9 +86,18 @@ interface SDNState {
   fetchTopology: () => Promise<void>;
   selectNode: (node: TopologyNode | null) => void;
   selectLink: (link: TopologyLink | null) => void;
-  setLinkStatus: (node1: string, node2: string, status: 'up' | 'down') => Promise<void>;
+  setLinkStatus: (
+    node1: string,
+    node2: string,
+    status: "up" | "down",
+  ) => Promise<void>;
   restoreAllLinks: () => Promise<void>;
-  startTraffic: (params?: { src?: string; dst?: string; interval?: number; count?: number }) => Promise<void>;
+  startTraffic: (params?: {
+    src?: string;
+    dst?: string;
+    interval?: number;
+    count?: number;
+  }) => Promise<void>;
   stopTraffic: () => Promise<void>;
   fetchTrafficStats: () => Promise<void>;
   fetchEvents: () => Promise<void>;
@@ -96,6 +110,12 @@ interface SDNState {
 
 // Preserve one lifecycle/controller value in the existing topology and UI fields.
 function topologyState(topology: TopologyResponse) {
+  useTopologySelectionStore
+    .getState()
+    .followRuntime(
+      topology.topology_id,
+      topology.simulation_state === "RUNNING",
+    );
   return {
     topology,
     simulationState: topology.simulation_state,
@@ -112,10 +132,29 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
   if (payload.runtime_revision < state.runtimeRevision) return null;
   if (state.runtimeId !== payload.runtime_id) {
     ++trafficVersion;
-    return { runtimeId: payload.runtime_id, runtimeRevision: payload.runtime_revision,
-      trafficStats: emptyTraffic() };
+    return {
+      runtimeId: payload.runtime_id,
+      runtimeRevision: payload.runtime_revision,
+      ...topologyState(
+        mergeTopology(emptyTopology(), {
+          simulation_state: state.simulationState,
+          active_controller: state.activeController,
+          topology_id: payload.topology_id,
+          topology_label: payload.topology_label,
+          active_topology_id: payload.active_topology_id,
+        }),
+      ),
+      selectedNode: null,
+      selectedLink: null,
+      trafficStats: emptyTraffic(),
+    };
   }
-  return { runtimeRevision: Math.max(state.runtimeRevision, payload.runtime_revision || 0) };
+  return {
+    runtimeRevision: Math.max(
+      state.runtimeRevision,
+      payload.runtime_revision || 0,
+    ),
+  };
 }
 
 let topologyRequestId = 0;
@@ -123,8 +162,10 @@ let controllerStatusVersion = 0;
 let controllerRequestId = 0;
 
 export const useSDNStore = create<SDNState>((set, get) => ({
-  runtimeId: null, runtimeRevision: 0, experimentRunId: null,
-  currentTab: 'overview',
+  runtimeId: null,
+  runtimeRevision: 0,
+  experimentRunId: null,
+  currentTab: "overview",
   setTab: (tab) => set({ currentTab: tab }),
 
   connected: false,
@@ -134,8 +175,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   controllers: [],
   activeController: null,
-  controllerStatus: 'NOT_SELECTED',
-  simulationState: 'STOPPED',
+  controllerStatus: "NOT_SELECTED",
+  simulationState: "STOPPED",
   uptime: 0,
 
   topology: emptyTopology(),
@@ -165,7 +206,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       const status = await api.getSystemStatus();
       set({ systemStatus: status });
     } catch (e: any) {
-      console.error('Failed to fetch system status', e);
+      console.error("Failed to fetch system status", e);
     }
   },
 
@@ -175,16 +216,24 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     const requestId = ++controllerRequestId;
     try {
       const list = await api.getControllers();
-      if (requestedVersion !== controllerStatusVersion || requestId !== controllerRequestId) return;
+      if (
+        requestedVersion !== controllerStatusVersion ||
+        requestId !== controllerRequestId
+      )
+        return;
       const active = list.find((c) => c.is_active)?.id || null;
       set((s) => ({
         controllers: list,
-        controllerStatus: list.find((c) => c.is_active)?.status || 'NOT_SELECTED',
+        controllerStatus:
+          list.find((c) => c.is_active)?.status || "NOT_SELECTED",
         ...(s.activeController === requestedController
-          ? topologyState(mergeTopology(s.topology, { active_controller: active })) : {}),
+          ? topologyState(
+              mergeTopology(s.topology, { active_controller: active }),
+            )
+          : {}),
       }));
     } catch (e: any) {
-      console.error('Failed to fetch controllers', e);
+      console.error("Failed to fetch controllers", e);
     }
   },
 
@@ -204,17 +253,32 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   startSimulation: async (ctrl) => {
+    const topologyId = useTopologySelectionStore.getState().selectedTopologyId;
     set({ loading: true, error: null });
     try {
-      const result = await api.startSimulation(ctrl);
+      const result = await api.startSimulation(
+        ctrl ?? get().activeController ?? undefined,
+        topologyId,
+      );
+      if (topologyId === "multipath_mesh" && result.topology_id !== topologyId)
+        throw new Error("Backend did not confirm the requested mesh topology");
       const patch = runtimePatch(get(), result);
       if (patch === null) return;
       set(patch);
-      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: 'RUNNING' })));
+      set((s) =>
+        topologyState(
+          mergeTopology(s.topology, { ...result, simulation_state: "RUNNING" }),
+        ),
+      );
       await get().fetchTopology();
       await get().fetchControllers();
     } catch (e: any) {
-      set((s) => ({ error: e.message, ...topologyState(mergeTopology(s.topology, { simulation_state: 'ERROR' })) }));
+      set((s) => ({
+        error: e.message,
+        ...topologyState(
+          mergeTopology(s.topology, { simulation_state: "ERROR" }),
+        ),
+      }));
       throw e;
     } finally {
       set({ loading: false });
@@ -228,8 +292,12 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       await api.stopSimulation();
       if (get().runtimeId !== runtime) return;
       ++trafficVersion;
-      set((s) => ({ ...topologyState(mergeTopology(s.topology, { simulation_state: 'STOPPED' })),
-        trafficStats: { ...s.trafficStats, active: false } }));
+      set((s) => ({
+        ...topologyState(
+          mergeTopology(s.topology, { simulation_state: "STOPPED" }),
+        ),
+        trafficStats: { ...s.trafficStats, active: false },
+      }));
       await get().fetchTrafficStats();
       await get().fetchTopology();
     } catch (e: any) {
@@ -247,7 +315,11 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       const patch = runtimePatch(get(), result);
       if (patch === null) return;
       set(patch);
-      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: 'RUNNING' })));
+      set((s) =>
+        topologyState(
+          mergeTopology(s.topology, { simulation_state: "RUNNING" }),
+        ),
+      );
       await get().fetchTopology();
     } catch (e: any) {
       set({ error: e.message });
@@ -265,10 +337,26 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (requestId !== topologyRequestId) return;
       const patch = runtimePatch(get(), topo);
       if (patch === null) return;
-      set((s) => ({ ...topologyState(mergeTopologySnapshot(s.topology, requestedTopology, topo)), ...patch,
-        ...(topo.simulation_state === "STOPPED" ? { trafficStats: { ...(patch.trafficStats || s.trafficStats), active: false } } : {}) }));
+      set((s) => ({
+        ...patch,
+        ...topologyState(
+          mergeTopologySnapshot(
+            patch.topology || s.topology,
+            patch.topology || requestedTopology,
+            topo,
+          ),
+        ),
+        ...(topo.simulation_state === "STOPPED"
+          ? {
+              trafficStats: {
+                ...(patch.trafficStats || s.trafficStats),
+                active: false,
+              },
+            }
+          : {}),
+      }));
     } catch (e: any) {
-      console.error('Failed to fetch topology', e);
+      console.error("Failed to fetch topology", e);
     }
   },
 
@@ -278,7 +366,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   setLinkStatus: async (node1, node2, status) => {
     set({ error: null });
     try {
-      if (status === 'down') {
+      if (status === "down") {
         await api.setLinkDown(node1, node2);
       } else {
         await api.setLinkUp(node1, node2);
@@ -310,10 +398,23 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       const result = await api.startTraffic(params || {});
       if (get().runtimeId !== runtime || action !== trafficVersion) return;
       if (get().trafficStats.job_id === result.job_id) return;
-      set({ trafficStats: { ...result, job_id: result.job_id, active: true, transmitted: 0,
-        received: 0, loss_percent: 0, duration_sec: 0, history: [],
-        min_rtt: null, avg_rtt: null, max_rtt: null, last_rtt: null,
-        accounting_complete: false } });
+      set({
+        trafficStats: {
+          ...result,
+          job_id: result.job_id,
+          active: true,
+          transmitted: 0,
+          received: 0,
+          loss_percent: 0,
+          duration_sec: 0,
+          history: [],
+          min_rtt: null,
+          avg_rtt: null,
+          max_rtt: null,
+          last_rtt: null,
+          accounting_complete: false,
+        },
+      });
     } catch (e: any) {
       set({ error: e.message });
       throw e;
@@ -325,9 +426,12 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     const runtime = get().runtimeId;
     try {
       const result = await api.stopTraffic();
-      if (get().trafficStats.job_id !== job || get().runtimeId !== runtime) return;
+      if (get().trafficStats.job_id !== job || get().runtimeId !== runtime)
+        return;
       ++trafficVersion;
-      set((s) => ({ trafficStats: { ...s.trafficStats, ...result, active: false } }));
+      set((s) => ({
+        trafficStats: { ...s.trafficStats, ...result, active: false },
+      }));
     } catch (e: any) {
       set({ error: e.message });
       throw e;
@@ -340,11 +444,27 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     const runtime = get().runtimeId;
     try {
       const stats = await api.getTrafficStats();
-      if (version !== trafficVersion || runtime !== get().runtimeId || request !== trafficRequestId) return;
-      if (!get().runtimeId && stats.runtime_id) set(runtimePatch(get(), stats) || {});
-      if (stats && acceptTraffic(get().trafficStats, stats, get().runtimeId, get().simulationState === "RUNNING", true)) set({ trafficStats: stats });
+      if (
+        version !== trafficVersion ||
+        runtime !== get().runtimeId ||
+        request !== trafficRequestId
+      )
+        return;
+      if (!get().runtimeId && stats.runtime_id)
+        set(runtimePatch(get(), stats) || {});
+      if (
+        stats &&
+        acceptTraffic(
+          get().trafficStats,
+          stats,
+          get().runtimeId,
+          get().simulationState === "RUNNING",
+          true,
+        )
+      )
+        set({ trafficStats: stats });
     } catch (e: any) {
-      console.error('Failed to fetch traffic stats', e);
+      console.error("Failed to fetch traffic stats", e);
     }
   },
 
@@ -353,7 +473,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       const logs = await api.getEventLogs(100);
       set({ events: logs });
     } catch (e: any) {
-      console.error('Failed to fetch events', e);
+      console.error("Failed to fetch events", e);
     }
   },
 
@@ -362,44 +482,79 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       const history = await api.getExperimentHistory(50);
       set({ experimentsHistory: history });
     } catch (e: any) {
-      console.error('Failed to fetch experiments', e);
+      console.error("Failed to fetch experiments", e);
     }
   },
 
   runExperiment: async (params) => {
-    if (get().experimentRunning) throw new Error('An experiment is already in progress');
+    if (get().experimentRunning)
+      throw new Error("An experiment is already in progress");
     const runId = createRequestId();
-    set({ experimentRunId: runId, experimentRunning: true, experimentProgress: { status: 'STARTING', progress_percent: 5 } });
+    set({
+      experimentRunId: runId,
+      experimentRunning: true,
+      experimentProgress: { status: "STARTING", progress_percent: 5 },
+    });
     try {
-      const res = await api.runExperiment({ ...params, run_id: runId });
+      const res = await api.runExperiment({
+        ...params,
+        topology_id:
+          params.topology_id ||
+          useTopologySelectionStore.getState().selectedTopologyId,
+        run_id: runId,
+      });
       await get().fetchExperiments();
       const alreadyFinal = finishedExperimentRuns.has(runId);
       finishedExperimentRuns.add(runId);
-      if (get().experimentRunId === runId && !alreadyFinal) set({ experimentRunning: false,
-        experimentProgress: { status: res.status || 'COMPLETED', progress_percent: 100 } });
+      if (get().experimentRunId === runId && !alreadyFinal)
+        set({
+          experimentRunning: false,
+          experimentProgress: {
+            status: res.status || "COMPLETED",
+            progress_percent: 100,
+          },
+        });
       return res;
     } catch (e: any) {
       const alreadyFinal = finishedExperimentRuns.has(runId);
       finishedExperimentRuns.add(runId);
-      if (get().experimentRunId === runId && !alreadyFinal) set({ experimentRunning: false,
-        experimentProgress: { status: 'FAILED' }, error: e.message });
+      if (get().experimentRunId === runId && !alreadyFinal)
+        set({
+          experimentRunning: false,
+          experimentProgress: { status: "FAILED" },
+          error: e.message,
+        });
       throw e;
     }
   },
 
   cancelExperiment: async () => {
     const runId = get().experimentRunId;
-    if (!runId) throw new Error('No active experiment');
-    set({ experimentProgress: { ...get().experimentProgress, status: 'CANCELLING', message: 'Waiting for experiment cleanup...' } });
+    if (!runId) throw new Error("No active experiment");
+    set({
+      experimentProgress: {
+        ...get().experimentProgress,
+        status: "CANCELLING",
+        message: "Waiting for experiment cleanup...",
+      },
+    });
     try {
       const res = await api.cancelExperiment(runId);
       finishedExperimentRuns.add(runId);
-      if (get().experimentRunId === runId) set({ experimentRunning: false,
-        experimentProgress: { status: res.status, progress_percent: 100 } });
+      if (get().experimentRunId === runId)
+        set({
+          experimentRunning: false,
+          experimentProgress: { status: res.status, progress_percent: 100 },
+        });
       await get().fetchExperiments();
     } catch (e: any) {
-      if (get().experimentRunId === runId) set({ error: e.message,
-        experimentProgress: finishedExperimentRuns.has(runId) ? get().experimentProgress : { status: 'RUNNING', message: e.message } });
+      if (get().experimentRunId === runId)
+        set({
+          error: e.message,
+          experimentProgress: finishedExperimentRuns.has(runId)
+            ? get().experimentProgress
+            : { status: "RUNNING", message: e.message },
+        });
       throw e;
     }
   },
@@ -407,89 +562,202 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   handleWebSocketMessage: (msg: any) => {
     const { event_type } = msg;
     if (!event_type) return;
-    if (['INITIAL_STATE', 'SIMULATION_STATUS', 'TOPOLOGY_UPDATE'].includes(event_type)) {
-      const patch = runtimePatch(get(), event_type === 'TOPOLOGY_UPDATE' ? msg.topology || {} : msg);
+    if (
+      ["INITIAL_STATE", "SIMULATION_STATUS", "TOPOLOGY_UPDATE"].includes(
+        event_type,
+      )
+    ) {
+      const patch = runtimePatch(
+        get(),
+        event_type === "TOPOLOGY_UPDATE" ? msg.topology || {} : msg,
+      );
       if (patch === null) return;
       set(patch);
     }
 
-    if (event_type === 'INITIAL_STATE') {
-      if ('experiment_run_id' in msg && (!get().experimentRunning || get().experimentRunId === msg.experiment_run_id)) {
-        set({ experimentRunId: msg.experiment_run_id || null, experimentRunning: !!msg.experiment_run_id,
-          ...(!msg.experiment_run_id ? { experimentProgress: null } : {}) });
+    if (event_type === "INITIAL_STATE") {
+      if (
+        "experiment_run_id" in msg &&
+        (!get().experimentRunning ||
+          get().experimentRunId === msg.experiment_run_id)
+      ) {
+        set({
+          experimentRunId: msg.experiment_run_id || null,
+          experimentRunning: !!msg.experiment_run_id,
+          ...(!msg.experiment_run_id ? { experimentProgress: null } : {}),
+        });
       }
-      if (msg.traffic && acceptTraffic(get().trafficStats, msg.traffic, get().runtimeId,
-          msg.simulation_state === 'RUNNING', true)) {
-        set({ trafficStats: { ...msg.traffic, active: msg.simulation_state === 'RUNNING' && msg.traffic.active } });
+      if (
+        msg.traffic &&
+        acceptTraffic(
+          get().trafficStats,
+          msg.traffic,
+          get().runtimeId,
+          msg.simulation_state === "RUNNING",
+          true,
+        )
+      ) {
+        set({
+          trafficStats: {
+            ...msg.traffic,
+            active: msg.simulation_state === "RUNNING" && msg.traffic.active,
+          },
+        });
       }
       if (msg.controller_status) {
         ++controllerStatusVersion;
-        set((s) => ({ controllerStatus: msg.controller_status,
-          controllers: s.controllers.map((controller) => ({ ...controller,
-            status: controller.id === msg.controller ? msg.controller_status : 'STOPPED',
+        set((s) => ({
+          controllerStatus: msg.controller_status,
+          controllers: s.controllers.map((controller) => ({
+            ...controller,
+            status:
+              controller.id === msg.controller
+                ? msg.controller_status
+                : "STOPPED",
           })),
-          ...(msg.controller_status === 'FAILED' ? { error: msg.failure_reason || 'Controller failed' } : {}),
+          ...(msg.controller_status === "FAILED"
+            ? { error: msg.failure_reason || "Controller failed" }
+            : {}),
         }));
       }
-      set((s) => topologyState(mergeTopology(s.topology, {
-        active_controller: msg.controller,
-        simulation_state: msg.simulation_state,
-        active_paths: msg.active_paths,
-      })));
-    } else if (event_type === 'CONTROLLER_STATUS') {
+      set((s) =>
+        topologyState(
+          mergeTopology(s.topology, {
+            topology_id: msg.topology_id,
+            topology_label: msg.topology_label,
+            active_topology_id: msg.active_topology_id,
+            active_controller: msg.controller,
+            simulation_state: msg.simulation_state,
+            active_paths: msg.active_paths,
+          }),
+        ),
+      );
+    } else if (event_type === "CONTROLLER_STATUS") {
       ++controllerStatusVersion;
       set((s) => ({
         controllerStatus: msg.status || s.controllerStatus,
-        controllers: s.controllers.map((controller) => ({ ...controller,
-          status: controller.id === msg.controller ? msg.status : 'STOPPED',
-          ...(controller.id === msg.controller ? { pid: msg.pid, exit_code: msg.exit_code,
-            failure_reason: msg.failure_reason || msg.error } : {}),
+        controllers: s.controllers.map((controller) => ({
+          ...controller,
+          status: controller.id === msg.controller ? msg.status : "STOPPED",
+          ...(controller.id === msg.controller
+            ? {
+                pid: msg.pid,
+                exit_code: msg.exit_code,
+                failure_reason: msg.failure_reason || msg.error,
+              }
+            : {}),
         })),
-        ...(msg.status === 'FAILED' ? { error: msg.error || 'Controller switch failed' } : {}),
+        ...(msg.status === "FAILED"
+          ? { error: msg.error || "Controller switch failed" }
+          : {}),
       }));
-      set((s) => topologyState(mergeTopology(s.topology, { active_controller: msg.controller })));
+      set((s) =>
+        topologyState(
+          mergeTopology(s.topology, { active_controller: msg.controller }),
+        ),
+      );
       get().fetchControllers();
-    } else if (event_type === 'SIMULATION_STATUS') {
-      if (msg.state === 'STOPPED') {
+    } else if (event_type === "SIMULATION_STATUS") {
+      if (msg.state === "STOPPED") {
         ++trafficVersion;
         set((s) => ({ trafficStats: { ...s.trafficStats, active: false } }));
       }
-      set((s) => topologyState(mergeTopology(s.topology, { simulation_state: msg.state })));
+      set((s) =>
+        topologyState(
+          mergeTopology(s.topology, {
+            simulation_state: msg.state,
+            topology_id: msg.topology_id,
+            topology_label: msg.topology_label,
+            active_topology_id: msg.active_topology_id,
+            ...(msg.state === "STOPPED"
+              ? {
+                  nodes: [],
+                  links: [],
+                  switches: [],
+                  hosts: [],
+                  active_paths: [],
+                }
+              : {}),
+          }),
+        ),
+      );
       get().fetchTopology();
-    } else if (event_type === 'TOPOLOGY_UPDATE') {
+    } else if (event_type === "TOPOLOGY_UPDATE") {
       if (msg.topology) {
         set((s) => topologyState(mergeTopology(s.topology, msg.topology)));
       } else {
         get().fetchTopology();
       }
-    } else if (event_type === 'LINK_FAILURE' || event_type === 'LINK_RESTORED') {
+    } else if (
+      event_type === "LINK_FAILURE" ||
+      event_type === "LINK_RESTORED"
+    ) {
       get().fetchTopology();
-    } else if (event_type === 'PATH_ACTIVE') {
-      set((s) => topologyState(mergeTopology(s.topology, { active_paths: [msg.path] })));
-    } else if (event_type === 'HEALED') {
-      set((s) => topologyState(mergeTopology(s.topology, { active_paths: [msg.new_path] })));
+    } else if (event_type === "PATH_ACTIVE") {
+      // Legacy controller-log messages never verified dataplane forwarding.
+      set((s) =>
+        topologyState(mergeTopology(s.topology, { active_paths: [] })),
+      );
+    } else if (event_type === "HEALED") {
+      // Controller reconfiguration timing remains valid; delivery is unverified.
+      set((s) =>
+        topologyState(mergeTopology(s.topology, { active_paths: [] })),
+      );
       get().fetchEvents();
-    } else if (['TRAFFIC_STARTED', 'TRAFFIC_TICK', 'TRAFFIC_COMPLETED'].includes(event_type)) {
-      const stats = event_type === 'TRAFFIC_COMPLETED' ? { ...msg.stats, active: false } : msg.stats;
-      if (!get().runtimeId && stats?.runtime_id) set(runtimePatch(get(), stats) || {});
-      if (stats && acceptTraffic(get().trafficStats, stats, get().runtimeId,
-          get().simulationState === 'RUNNING', event_type === 'TRAFFIC_STARTED' || !get().runtimeId)) {
-        if (event_type === 'TRAFFIC_STARTED') ++trafficVersion;
+    } else if (
+      ["TRAFFIC_STARTED", "TRAFFIC_TICK", "TRAFFIC_COMPLETED"].includes(
+        event_type,
+      )
+    ) {
+      const stats =
+        event_type === "TRAFFIC_COMPLETED"
+          ? { ...msg.stats, active: false }
+          : msg.stats;
+      if (!get().runtimeId && stats?.runtime_id)
+        set(runtimePatch(get(), stats) || {});
+      if (
+        stats &&
+        acceptTraffic(
+          get().trafficStats,
+          stats,
+          get().runtimeId,
+          get().simulationState === "RUNNING",
+          event_type === "TRAFFIC_STARTED" || !get().runtimeId,
+        )
+      ) {
+        if (event_type === "TRAFFIC_STARTED") ++trafficVersion;
         set({ trafficStats: stats });
       }
-    } else if (event_type === 'EXPERIMENT_PROGRESS') {
-      if (get().experimentProgress?.status === 'CANCELLING' && msg.run_id === get().experimentRunId) return;
+    } else if (event_type === "EXPERIMENT_PROGRESS") {
+      if (
+        get().experimentProgress?.status === "CANCELLING" &&
+        msg.run_id === get().experimentRunId
+      )
+        return;
       if (msg.run_id) {
         if (finishedExperimentRuns.has(msg.run_id)) return;
-        if (get().experimentRunId && get().experimentRunId !== msg.run_id && get().experimentRunning) return;
-        if (!get().experimentRunning && msg.status !== 'PREPARING' && !msg.comparison_id) return;
+        if (
+          get().experimentRunId &&
+          get().experimentRunId !== msg.run_id &&
+          get().experimentRunning
+        )
+          return;
+        if (
+          !get().experimentRunning &&
+          msg.status !== "PREPARING" &&
+          !msg.comparison_id
+        )
+          return;
         set({ experimentRunId: msg.run_id });
       }
       set({
         experimentRunning: true,
         experimentProgress: msg,
       });
-    } else if (event_type === 'EXPERIMENT_FINISHED' || event_type === 'COMPARISON_FINISHED') {
+    } else if (
+      event_type === "EXPERIMENT_FINISHED" ||
+      event_type === "COMPARISON_FINISHED"
+    ) {
       if (msg.run_id && finishedExperimentRuns.has(msg.run_id)) return;
       if (msg.run_id && msg.run_id !== get().experimentRunId) {
         finishedExperimentRuns.add(msg.run_id);
@@ -498,12 +766,18 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (msg.run_id) finishedExperimentRuns.add(msg.run_id);
       set({
         experimentRunning: false,
-        experimentProgress: { status: msg.experiment?.status || msg.comparison?.status || (msg.error ? 'FAILED' : 'COMPLETED'), progress_percent: 100 },
+        experimentProgress: {
+          status:
+            msg.experiment?.status ||
+            msg.comparison?.status ||
+            (msg.error ? "FAILED" : "COMPLETED"),
+          progress_percent: 100,
+        },
       });
       if (msg.error) set({ error: msg.error });
       get().fetchExperiments();
       get().fetchTopology();
-    } else if (event_type === 'LOG_LINE') {
+    } else if (event_type === "LOG_LINE") {
       set((s) => {
         const nextLogs = [...s.controllerLogs, msg.line];
         if (nextLogs.length > 250) nextLogs.shift();

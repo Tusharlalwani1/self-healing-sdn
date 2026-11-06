@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import {
   ReactFlow,
   Controls,
@@ -6,16 +6,16 @@ import {
   BackgroundVariant,
   Node,
   Edge,
-  MarkerType
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+  MarkerType,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
-import { useSDNStore } from '../../stores/sdnStore';
-import { SwitchNode } from './SwitchNode';
-import { HostNode } from './HostNode';
-import { TopologyLink, TopologyNode } from '../../types';
-import { layoutTopology } from '../../services/topologyLayout';
-import { EmptyState } from '../ui/Primitives';
+import { useSDNStore } from "../../stores/sdnStore";
+import { SwitchNode } from "./SwitchNode";
+import { HostNode } from "./HostNode";
+import { TopologyLink, TopologyNode } from "../../types";
+import { layoutTopology } from "../../services/topologyLayout";
+import { EmptyState } from "../ui/Primitives";
 
 const nodeTypes = {
   switchNode: SwitchNode,
@@ -27,10 +27,23 @@ interface TopologyCanvasProps {
   onSelectLink?: (link: TopologyLink) => void;
 }
 
-export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, onSelectLink }) => {
-  const { topology, selectedNode, selectedLink, selectNode, selectLink } = useSDNStore();
+export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
+  onSelectNode,
+  onSelectLink,
+}) => {
+  const {
+    topology,
+    runtimeId,
+    selectedNode,
+    selectedLink,
+    selectNode,
+    selectLink,
+  } = useSDNStore();
 
-  const positions = useMemo(() => layoutTopology(topology.nodes, topology.links), [topology.nodes, topology.links]);
+  const positions = useMemo(
+    () => layoutTopology(topology.nodes, topology.links),
+    [topology.nodes, topology.links],
+  );
 
   // Convert store nodes to ReactFlow nodes
   const nodes: Node[] = useMemo(() => {
@@ -38,10 +51,10 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
 
     return rawNodes.map((n) => {
       const pos = positions[n.name] || { x: 300, y: 250 };
-      const isSwitch = n.type === 'switch';
+      const isSwitch = n.type === "switch";
       return {
         id: n.name,
-        type: isSwitch ? 'switchNode' : 'hostNode',
+        type: isSwitch ? "switchNode" : "hostNode",
         position: pos,
         data: {
           label: n.name,
@@ -61,7 +74,10 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
     const isPairInActivePath = (a: string, b: string) => {
       for (const p of activePaths) {
         for (let i = 0; i < p.length - 1; i++) {
-          if ((p[i] === a && p[i + 1] === b) || (p[i] === b && p[i + 1] === a)) {
+          if (
+            (p[i] === a && p[i + 1] === b) ||
+            (p[i] === b && p[i + 1] === a)
+          ) {
             return true;
           }
         }
@@ -72,29 +88,31 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
     return topology.links.map((pair) => {
       const linkMatch = pair;
 
-      const isDown = linkMatch ? linkMatch.status === 'DOWN' : false;
+      const isDown = linkMatch ? linkMatch.status === "DOWN" : false;
       const isActive = !isDown && isPairInActivePath(pair.src, pair.dst);
-      const isSelected = selectedLink?.id === pair.id || selectedLink?.id === `${pair.dst}-${pair.src}`;
+      const isSelected =
+        selectedLink?.id === pair.id ||
+        selectedLink?.id === `${pair.dst}-${pair.src}`;
 
-      let stroke = '#a8b09e';
+      let stroke = "#a8b09e";
       let strokeWidth = 2;
       let strokeDasharray = undefined;
       let animated = false;
       let label = undefined;
 
       if (isDown) {
-        stroke = '#b64a41';
+        stroke = "#b64a41";
         strokeWidth = 3;
-        strokeDasharray = '6 6';
-        label = 'FAIL (DOWN)';
+        strokeDasharray = "6 6";
+        label = "FAIL (DOWN)";
       } else if (isActive) {
-        stroke = '#52714c';
+        stroke = "#52714c";
         strokeWidth = 3.5;
         animated = false;
       }
 
       if (isSelected) {
-        stroke = isDown ? '#b64a41' : '#6b54a0';
+        stroke = isDown ? "#b64a41" : "#6b54a0";
         strokeWidth = 4;
       }
 
@@ -104,8 +122,8 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
         target: pair.dst,
         animated,
         label,
-        labelStyle: { fill: '#b64a41', fontWeight: 700, fontSize: 10 },
-        labelBgStyle: { fill: '#fafbf7', fillOpacity: 0.95 },
+        labelStyle: { fill: "#b64a41", fontWeight: 700, fontSize: 10 },
+        labelBgStyle: { fill: "#fafbf7", fillOpacity: 0.95 },
         style: {
           stroke,
           strokeWidth,
@@ -123,12 +141,20 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
 
   return (
     <div className="topology-canvas">
-      {!nodes.length && <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"><EmptyState title="No topology reported">Start a simulation to discover nodes and links.</EmptyState></div>}
+      {!nodes.length && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <EmptyState title="No topology reported">
+            Start a simulation to discover nodes and links.
+          </EmptyState>
+        </div>
+      )}
       <ReactFlow
+        key={runtimeId || "uninitialized"}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={{ padding: 0.06 }}
         onNodeClick={(_, node) => {
           const match = topology.nodes.find((n) => n.name === node.id);
           if (!match) return;
@@ -143,15 +169,29 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({ onSelectNode, on
         }}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#d2d8c7" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="#d2d8c7"
+        />
         <Controls />
       </ReactFlow>
 
       {/* Floating legend */}
       <div className="topology-legend">
-        <span><i className="legend-line active"/>Reported active path</span>
-        <span><i className="legend-line"/>Other reported link</span>
-        <span><i className="legend-line down"/>DOWN</span>
+        <span>
+          <i className="legend-line active" />
+          Verified forwarding path
+        </span>
+        <span>
+          <i className="legend-line" />
+          Other reported link
+        </span>
+        <span>
+          <i className="legend-line down" />
+          DOWN
+        </span>
       </div>
     </div>
   );

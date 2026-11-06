@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import assert from 'node:assert/strict';
+import { meshOption, diamondOption } from './meshFixture.ts';
 
 const runtime = 'traffic-config-test';
 const initial = () => ({ runtime_id:runtime, traffic_sequence:0, active:false, transmitted:0, received:0, loss_percent:0, duration_sec:0, history:[], avg_rtt:null });
@@ -19,6 +20,7 @@ const server=createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');
     const json=value=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
     if(url.pathname==='/api/controllers')return json([{id:'reactive',name:'Reactive',description:'Test fixture',features:[],status:'READY',is_active:true}]);
+    if(url.pathname==='/api/topology/options')return json([diamondOption,meshOption]);
     if(url.pathname==='/api/topology')return json(topology);
     if(url.pathname==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(url.pathname==='/api/events/logs')return json([]);
@@ -78,7 +80,9 @@ try {
     await emit('TRAFFIC_COMPLETED',final);
     await waitFor(`document.querySelector('.traffic-page').textContent.includes('#${config.count}')`);
     assert.deepEqual(await form(),expected,'completion preserves controls');
-    const reads=statsReads;await delay(3300);assert.ok(statsReads>reads,'REST telemetry polling exercised');
+    const reads=statsReads;
+    for(let i=0;i<100&&statsReads<=reads;i++)await delay(100);
+    assert.ok(statsReads>reads,'REST telemetry polling exercised');
     assert.deepEqual(await form(),expected,'REST statistics preserve controls');
     results.push(`${config.count} packets: actual POST payload, tick, completion and REST polling preserve all controls`);
     // Match the failure-investigation workflow: inspect another page, then return.
