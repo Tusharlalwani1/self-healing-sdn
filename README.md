@@ -1,252 +1,1294 @@
-# 🌐 Self-Healing SDN Web Control Center & Network Operations Center (NOC)
+# 🌐 Self-Healing SDN Control Center
 
-A complete, production-grade Network Operations Center (NOC) web application and orchestration platform for **Self-Healing Software-Defined Networks (SDN)**. Built with **FastAPI**, **React 18**, **TypeScript**, **React Flow**, **Ryu 4.34**, **Mininet 2.3.0**, **Open vSwitch 2.17.12**, and **OpenFlow 1.3**.
+A web-based **Software-Defined Networking (SDN) resilience platform** designed to detect network failures, recover traffic using different SDN strategies, verify whether recovery actually worked, evaluate whether the recovered network satisfies application requirements, and detect network degradation even when a link is still operational.
 
----
-
-## 🎯 Project Highlights & Core Features
-
-- **⚡ Zero Manual CLI Interaction**: Control the entire SDN lifecycle directly from your browser—no manual terminal commands (`ryu-manager`, `sudo mn`, `link s1 s2 down`, etc.) required.
-- **🔄 Complete Controller Lifecycle Management**: 1-click runtime switching between:
-  1. **Baseline Controller** (Shortest-path forwarding, no automatic recovery).
-  2. **Reactive Self-Healing Controller** (Dynamic failure detection, graph recalculation via NetworkX, sub-5ms flow reprogramming).
-  3. **Fast Failover Controller** (Pre-programmed OpenFlow 1.3 Fast Failover Groups `OFPGT_FF` with hardware-speed datapath switching).
-- **🗺️ Interactive Diamond Topology Visualization**:
-  - Live animated nodes (`s1`, `s2`, `s3`, `s4`, `h1`, `h2`) and links rendered with **React Flow**.
-  - Dynamic route highlighting (glowing emerald active forwarding paths, crimson dashed failure links).
-  - Click-to-inspect modals for Switches (flows, groups, port counters) and Links (administrative state, real-time disconnect/restore toggles).
-- **📡 Real-Time Telemetry & Event Streaming**:
-  - WebSockets (`/ws/events`) streaming controller logs, topology updates, recovery events, and traffic telemetry.
-  - Sub-second ICMP ping engine tracking latency (min, avg, max RTT) and packet loss percentage.
-- **🧪 Automated Experiment Lab & 3-Way Comparative Benchmarks**:
-  - Multi-stage automated testing: pre-warmup, traffic stream generation, scheduled link disruption, recovery timestamp capture, and metrics recording.
-  - SQLite persistent storage for all historical experiment runs.
-- **📊 Performance Analytics & Reporting**:
-  - Multi-dimensional analytics charts (packet loss by controller, recovery duration, latency distributions) using **Recharts**.
-  - Export full technical reports in **HTML**, **CSV**, and **JSON**.
-- **🚀 1-Click Windows Launcher**:
-  - Double-click `Start-SDN-Dashboard.ps1` to automatically verify WSL, start Open vSwitch, launch FastAPI with Uvicorn, and open the NOC dashboard in your default browser.
+The project combines **Ryu, Mininet, Open vSwitch, OpenFlow 1.3, FastAPI, React, TypeScript, WebSockets, and SQLite** into an interactive Network Operations Center (NOC).
 
 ---
 
-## 🏗️ System Architecture
+## 🎯 What Problem Are We Solving?
+
+A basic Self-Healing SDN system usually works like this:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Windows Host Browser                            │
-│           React 18 + TypeScript + React Flow + Recharts + Tailwind      │
-└───────────────────────────────────▲────────────────────────────────────┘
-                                    │ HTTP / WebSocket (:8000)
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                    FastAPI Backend Server (WSL2)                       │
-│  - REST API Routers (/controllers, /simulation, /topology, /traffic)   │
-│  - WebSocket ConnectionManager (/ws/events)                            │
-│  - SQLite Database (experiments, logs) & Report Generators             │
-│  - Controller Process Lifecycle Manager                                │
-└─────────────────┬────────────────────────────────────▲─────────────────┘
-                  │                                    │
-   Unix Domain Socket (/tmp/mininet_worker.sock)       │ OpenFlow 1.3 (:6653)
-                  │                                    │
-┌─────────────────▼──────────────────┐   ┌─────────────┴─────────────────┐
-│ Privileged Mininet Worker Daemon   │   │  Ryu Controller Engine        │
-│  - Network Ownership (Mininet Net) │   │  - controller_baseline.py     │
-│  - Open vSwitch Bridge Control     │   │  - controller_reactive.py     │
-│  - Link Status (ip link set up/dn) │   │  - controller_ff.py           │
-│  - ICMP Traffic Daemon (stdbuf)    │   │  - Log Event Parser (Regex)   │
-└─────────────────┬──────────────────┘   └─────────────┬─────────────────┘
-                  │                                    │
-                  └─────────────── OpenFlow 1.3 ───────┘
-                                     │
-                     ┌───────────────┴───────────────┐
-                     │   Diamond Network Topology    │
-                     │          h1 (10.0.0.1)        │
-                     │                |              │
-                     │               s1              │
-                     │             /    \            │
-                     │           s2      s3          │
-                     │             \    /            │
-                     │               s4              │
-                     │                |              │
-                     │          h2 (10.0.0.2)        │
-                     └───────────────────────────────┘
+Link Failure
+     ↓
+Detect Failure
+     ↓
+Find Alternative Path
+     ↓
+Continue Traffic
+```
+
+But simply finding another path does not answer important questions:
+
+- Did traffic actually recover?
+- How many packets were lost?
+- What happened to latency?
+- Is the recovered network good enough for the application?
+- What if the link is still UP but becomes slow or unreliable?
+- How do we distinguish a hard failure from network degradation?
+
+Our project therefore goes beyond simple rerouting.
+
+The goal is to build a measurable Self-Healing SDN workflow:
+
+```text
+Detect
+   ↓
+Recover
+   ↓
+Verify
+   ↓
+Evaluate
+   ↓
+Improve
 ```
 
 ---
 
-## 📁 Repository Structure
+# ⭐ Current Features
+
+| Feature | Status |
+|---|---|
+| Web-based NOC Dashboard | ✅ Implemented |
+| Baseline Controller | ✅ Implemented |
+| Reactive Self-Healing Controller | ✅ Implemented |
+| Fast Failover Controller | ✅ Implemented |
+| Diamond Topology | ✅ Implemented |
+| Multi-Path Mesh Topology | ✅ Implemented |
+| Real ICMP Traffic Monitoring | ✅ Implemented |
+| Hard Link Failure Injection | ✅ Implemented |
+| Link Restoration | ✅ Implemented |
+| Experiment Lab | ✅ Implemented |
+| Analytics & Reporting | ✅ Implemented |
+| Recovery Verification Engine | ✅ Implemented & Live Validated |
+| Service Intent Evaluation | ✅ Implemented & Live Validated |
+| Soft Failure / Degradation Detection | ⚙️ Implemented & Automated Validated |
+| Real TC Delay/Loss Injection | ⚙️ Implemented & Automated Validated |
+| Full Phase 5 Live Mininet Validation | ⏳ Pending |
+| Adaptive Healing | 🔮 Planned – Phase 6 |
+| Closed-Loop Re-Healing | 🔮 Planned – Phase 6 |
+| Explainable Incident Analysis | 🔮 Planned |
+
+---
+
+# 🏗️ System Architecture
 
 ```text
-self-healing-sdn/
-├── Start-SDN-Dashboard.ps1        # 1-Click Windows PowerShell Launcher
-├── controller_baseline.py         # Original Baseline Controller
-├── controller_reactive.py         # Original Reactive Self-Healing Controller
-├── controller_ff.py               # Original Fast Failover Controller
-├── topo_diamond.py                # Original Mininet Diamond Topology Script
-├── requirements.txt               # Backend Python dependencies
-│
-├── backend/                       # FastAPI Backend Engine
-│   ├── main.py                    # Server Entrypoint & Static Bundle Serving
-│   ├── config.py                  # Environment paths & Ports
-│   ├── api/                       # REST API Endpoint Routers
-│   │   ├── system.py              # Health & Environment checks
-│   │   ├── controllers.py         # Controller selection & log streaming
-│   │   ├── simulation.py          # Start / Stop / Reset network
-│   │   ├── topology.py            # Live topology discovery & Switch inspection
-│   │   ├── links.py               # Link up / down simulation
-│   │   ├── traffic.py             # ICMP ping generation & metrics
-│   │   ├── experiments.py         # Automated testing & SQLite history
-│   │   └── reports.py             # JSON / CSV / HTML technical exports
-│   ├── database/
-│   │   └── db.py                  # SQLite database queries & tables
-│   ├── models/
-│   │   ├── schemas.py             # Pydantic request/response models
-│   │   └── events.py              # WebSocket event definitions
-│   ├── services/
-│   │   ├── controller_manager.py  # Ryu subprocess & port manager
-│   │   ├── log_parser.py          # Regex log parser for healing events
-│   │   ├── mininet_worker.py      # Privileged Mininet daemon (Unix socket)
-│   │   ├── mininet_client.py      # Async IPC client for worker
-│   │   ├── traffic_service.py     # Live ping coordinator & stream parser
-│   │   ├── experiment_runner.py   # Automated benchmark orchestrator
-│   │   └── report_generator.py    # Formatted report generation
-│   └── websocket/
-│       └── manager.py             # WebSocket broadcasting hub
-│
-├── frontend/                      # Modern React NOC Dashboard
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── dist/                      # Pre-compiled production bundle
-│   └── src/
-│       ├── App.tsx                # NOC Navigation & Router
-│       ├── components/
-│       │   ├── layout/            # Top Navbar & Persistent Left Sidebar
-│       │   ├── modals/            # Switch & Link Detail Inspector Modals
-│       │   └── topology/          # React Flow Canvas, SwitchNode, HostNode
-│       ├── pages/                 # Full NOC View Pages
-│       │   ├── OverviewView.tsx
-│       │   ├── TopologyView.tsx
-│       │   ├── ControllersView.tsx
-│       │   ├── TrafficView.tsx
-│       │   ├── FailureSimulatorView.tsx
-│       │   ├── ExperimentLabView.tsx
-│       │   ├── AnalyticsView.tsx
-│       │   ├── EventLogsView.tsx
-│       │   └── SettingsView.tsx
-│       └── stores/
-│           └── sdnStore.ts        # Zustand state management
-│
-└── scripts/
-    ├── setup.sh                   # Environment validation & dependency installer
-    ├── start.sh                   # WSL startup script
-    └── stop.sh                    # Clean teardown script
+┌───────────────────────────────────────────────┐
+│               React NOC Dashboard             │
+│                                               │
+│ Overview | Topology | Controllers | Traffic   │
+│ Failures | Experiments | Analytics | Logs     │
+└──────────────────────┬────────────────────────┘
+                       │
+                 REST + WebSocket
+                       │
+                       ▼
+┌───────────────────────────────────────────────┐
+│                 FastAPI Backend               │
+│                                               │
+│ • Controller Lifecycle                        │
+│ • Traffic Monitoring                          │
+│ • Experiment Runner                           │
+│ • Recovery Verification                       │
+│ • Service Intent Evaluation                   │
+│ • Link Health / Degradation Detection         │
+│ • SQLite History & Reporting                  │
+└──────────────┬─────────────────┬──────────────┘
+               │                 │
+               ▼                 ▼
+      Mininet Worker       Ryu Controller
+               │                 │
+               │          OpenFlow 1.3
+               │                 │
+               └────────┬────────┘
+                        ▼
+                 Open vSwitch
+                        │
+                        ▼
+               Virtual SDN Network
 ```
 
 ---
 
-## 🚀 Quick Start (Zero Manual CLI)
+# 🛠️ Technology Stack
 
-### Option 1: 1-Click Windows Launcher (Recommended)
+## Networking
 
-1. Open PowerShell on Windows.
-2. Run the automated launcher:
-   ```powershell
-   cd C:\Users\mdani\Projects\self-healing-sdn
-   .\Start-SDN-Dashboard.ps1
-   ```
-3. The script will:
-   - Validate WSL2 and Open vSwitch services.
-   - Start the FastAPI backend inside WSL2.
-   - Poll backend health until ready.
-   - Automatically open `http://localhost:8000` in your Windows default browser.
+- Ryu 4.34
+- Mininet 2.3.0
+- Open vSwitch 2.17.12
+- OpenFlow 1.3
+- Linux Traffic Control (TC)
 
-### Option 2: Linux / WSL Direct Start
+## Backend
+
+- Python 3.10
+- FastAPI
+- WebSockets
+- SQLite
+
+## Frontend
+
+- React
+- TypeScript
+- Vite
+- React Flow
+- Recharts
+- Zustand
+
+## Environment
+
+- Windows + WSL2
+- Ubuntu 22.04
+
+---
+
+# 🧠 SDN Controllers
+
+The project currently supports three controller strategies.
+
+## 1. Baseline Controller
+
+The Baseline Controller provides normal network forwarding.
+
+If an active forwarding link fails, it does **not provide automatic self-healing**.
+
+It acts as the comparison case for the self-healing controllers.
+
+---
+
+## 2. Reactive Self-Healing Controller
+
+The Reactive Controller responds after a network failure is detected.
+
+```text
+Link Failure
+     ↓
+Topology Change Detected
+     ↓
+Network Graph Updated
+     ↓
+Alternative Route Calculated
+     ↓
+New Flow Rules Installed
+     ↓
+Traffic Recovers
+```
+
+The controller therefore performs recovery after learning about the failure.
+
+---
+
+## 3. Fast Failover Controller
+
+The Fast Failover Controller uses **OpenFlow 1.3 Fast Failover Groups (`OFPGT_FF`)**.
+
+Where a valid backup has already been prepared, a switch can use its backup bucket when the watched primary port becomes unavailable.
+
+This can reduce dependency on controller-side route recomputation for supported failures.
+
+> Fast Failover protection only applies where an appropriate backup has been prepared. We do not claim that every topology failure can be locally recovered or that an exact failover time has been measured.
+
+---
+
+# 🗺️ Supported Network Topologies
+
+## 1. Diamond Topology — Basic
+
+```text
+        s2
+       /  \
+h1 -- s1   s4 -- h2
+       \  /
+        s3
+```
+
+Contains:
+
+- 4 switches
+- 2 hosts
+- 6 total links
+
+This topology is useful for basic SDN recovery demonstrations.
+
+---
+
+# 🕸️ Multi-Path Mesh — Advanced
+
+The advanced topology provides significantly more routing possibilities.
+
+It contains:
+
+- **9 switches**
+- **2 hosts**
+- **14 inter-switch links**
+- **16 total links including host links**
+
+Host connections:
+
+```text
+h1 → s1
+h2 → s9
+```
+
+Inter-switch links:
+
+```text
+s1-s2
+s1-s3
+s1-s4
+
+s2-s3
+s2-s5
+
+s3-s4
+s3-s6
+
+s4-s7
+
+s5-s6
+s5-s9
+
+s6-s7
+s6-s9
+
+s7-s8
+s8-s9
+```
+
+Example possible routes include:
+
+```text
+s1 → s2 → s5 → s9
+
+s1 → s3 → s6 → s9
+
+s1 → s4 → s7 → s8 → s9
+```
+
+The Multi-Path Mesh allows us to test recovery under more complex network conditions.
+
+---
+
+# 📡 Real Traffic Monitoring
+
+The system generates actual ICMP traffic between Mininet hosts.
+
+Example:
+
+```text
+h1 → h2
+```
+
+The Traffic Monitor records:
+
+- Packets transmitted
+- Packets received
+- Packet loss
+- Minimum RTT
+- Average RTT
+- Maximum RTT
+- Traffic job status
+
+Traffic accounting comes from actual traffic execution rather than randomly generated dashboard values.
+
+---
+
+## RTT Measurements
+
+The project distinguishes between two important RTT measurements.
+
+### Overall Job Avg RTT
+
+Average RTT across successful replies during the complete traffic job.
+
+### Post-Recovery Avg RTT
+
+Average RTT measured specifically during the bounded Recovery Verification observation window after a network failure.
+
+Therefore, these two numbers can legitimately be different.
+
+---
+
+# 💥 Hard Failure Simulation
+
+The Failure Simulator allows a supported inter-switch link to be intentionally disconnected.
+
+Example:
+
+```text
+s2 ↔ s5
+
+UP
+ ↓
+DOWN
+```
+
+This is called **failure injection**.
+
+Failure injection is only the mechanism used to test the network.
+
+The operator creates the failure manually, but failure detection and recovery occur automatically according to the selected controller.
+
+In a real network, a similar failure could happen because of:
+
+- Fiber/cable failure
+- Port failure
+- Switch failure
+- Power failure
+- Hardware problems
+
+---
+
+# 🩺 Recovery Verification Engine
+
+Finding an alternative route does not automatically prove that the network recovered.
+
+Therefore, the project contains a separate **Recovery Verification Engine**.
+
+It checks actual post-failure traffic evidence.
+
+The engine evaluates:
+
+- Was reachability restored?
+- Are packets being received?
+- What is the post-recovery packet loss?
+- What is the post-recovery RTT?
+- Is service stable during the observation window?
+
+Possible states include:
+
+```text
+NOT_STARTED
+VERIFYING
+VERIFIED
+DEGRADED
+FAILED
+```
+
+Example:
+
+```text
+RECOVERY VERIFICATION
+
+Status: VERIFIED
+
+Post-Recovery Tx: 38
+Post-Recovery Rx: 38
+Loss: 0%
+Average RTT: 32.04 ms
+Reachability: TRUE
+Stability: TRUE
+```
+
+If a measurement is unavailable, the system reports it as unavailable rather than displaying a fake zero.
+
+---
+
+# 🛣️ Path Evidence
+
+The project follows an important rule:
+
+```text
+Computed Path
+     ≠
+Installed Path
+     ≠
+Observed Dataplane Path
+```
+
+A route calculated by the controller is not automatically presented as proof that actual packets travelled through that exact route.
+
+Where dataplane path evidence is unavailable, the system reports it truthfully as unavailable.
+
+---
+
+# 🛡️ Service Intent / SLA-Aware Evaluation
+
+Technical recovery does not always mean that the recovered network is good enough for an application.
+
+Example:
+
+```text
+Network Recovered: YES
+
+Post-Recovery RTT:
+36 ms
+
+Application Requirement:
+RTT <= 25 ms
+```
+
+The network has technically recovered.
+
+But it does not satisfy the application's latency requirement.
+
+This is why the project includes **Service Intent Evaluation**.
+
+---
+
+# 📋 What Is Service Intent?
+
+Instead of specifying an exact route, the user specifies the quality required by a service.
+
+Example:
+
+```text
+Reachability: Required
+Packet Loss: <= 1%
+Average RTT: <= 25 ms
+```
+
+The system compares these requirements against actual Recovery Verification evidence.
+
+---
+
+# 🎯 Built-In Service Profiles
+
+## Standard
+
+```text
+Priority: NORMAL
+Reachability: Required
+Maximum Loss: 5%
+Maximum Average RTT: 100 ms
+```
+
+## Interactive / Low Latency
+
+```text
+Priority: HIGH
+Reachability: Required
+Maximum Loss: 1%
+Maximum Average RTT: 25 ms
+```
+
+## Reliable
+
+```text
+Priority: CRITICAL
+Reachability: Required
+Maximum Loss: 0%
+Maximum Average RTT: 100 ms
+```
+
+## Bulk / Throughput-Tolerant
+
+```text
+Priority: LOW
+Reachability: Required
+Maximum Loss: 10%
+Maximum Average RTT: 250 ms
+```
+
+Custom service requirements are also supported.
+
+> These are project demonstration defaults and are not claimed as universal industry SLA standards.
+
+---
+
+# 🔍 Recovery vs Service Intent
+
+One of the most important concepts demonstrated by the project is:
+
+```text
+Recovery VERIFIED
+does not necessarily mean
+Intent SATISFIED
+```
+
+For example:
+
+```text
+Recovery Verification
+VERIFIED ✅
+
+Post-Recovery RTT
+36.27 ms
+
+Interactive Requirement
+<= 25 ms
+
+Service Intent
+VIOLATED ❌
+```
+
+The network is working again, but it is not providing the quality required by the selected service.
+
+---
+
+# 🧪 Phase 4 Live Validation
+
+## Reactive + Standard Intent
+
+Multi-Path Mesh with an `s2-s5` failure:
+
+```text
+Recovery: VERIFIED
+
+Post-Recovery:
+38 Tx
+38 Rx
+0% Loss
+~32.04 ms Average RTT
+
+Intent:
+SATISFIED
+```
+
+---
+
+## Reactive + Interactive Intent
+
+Multi-Path Mesh with an `s2-s5` failure:
+
+```text
+Recovery: VERIFIED
+
+Post-Recovery:
+36 Tx
+36 Rx
+0% Loss
+~36.27 ms Average RTT
+```
+
+Interactive requirement:
+
+```text
+Maximum Average RTT:
+25 ms
+```
+
+Result:
+
+```text
+Recovery: VERIFIED ✅
+Intent: VIOLATED ❌
+```
+
+This proves that successful technical recovery and acceptable application quality are two different things.
+
+---
+
+## Baseline + Standard Intent
+
+Multi-Path Mesh with an `s2-s5` failure:
+
+```text
+Post-Recovery:
+
+Tx: 35
+Rx: 0
+Loss: 100%
+RTT: N/A
+
+Reachability:
+FALSE
+
+Recovery:
+FAILED ❌
+
+Intent:
+VIOLATED ❌
+```
+
+These are results from specific experiments and are not guaranteed performance values for every future run.
+
+---
+
+# ⚠️ Soft Failure / Network Degradation Detection
+
+Not every network problem causes a link to go DOWN.
+
+A link may remain operational but provide poor service.
+
+Example:
+
+```text
+Link Status:
+UP
+
+Latency:
+High
+
+Packet Loss:
+High
+```
+
+This is treated as a **Soft Failure / Network Degradation**.
+
+---
+
+# 🔧 Real TC Degradation Injection
+
+Phase 5 introduces real network impairment using **Linux Traffic Control (TC)**.
+
+Supported impairment includes:
+
+### Additional Delay
+
+```text
++100 ms delay
+```
+
+### Packet Loss
+
+```text
+10% configured loss
+```
+
+### Combined
+
+```text
++80 ms delay
+5% configured loss
+```
+
+The impairment affects actual dataplane traffic.
+
+The link remains operationally:
+
+```text
+UP
+```
+
+while its health may become:
+
+```text
+DEGRADED
+```
+
+or:
+
+```text
+CRITICAL
+```
+
+---
+
+# ❤️ Link Health Model
+
+The project separates:
+
+## Operational Status
+
+```text
+UP
+DOWN
+```
+
+from:
+
+## Health Status
+
+```text
+HEALTHY
+DEGRADED
+CRITICAL
+UNKNOWN
+```
+
+This means a link can legitimately be:
+
+```text
+Operational Status:
+UP ✅
+
+Health Status:
+CRITICAL ⚠️
+```
+
+The physical/logical link still exists, but the service quality is poor.
+
+---
+
+# 📏 Configured vs Observed Evidence
+
+The project keeps configured impairment separate from actual measured traffic behavior.
+
+Example:
+
+```text
+Configured TC Loss:
+10%
+
+Observed Traffic Loss:
+8.7%
+```
+
+Configuring 10% loss does not prove that exactly 10% of packets were lost during a particular traffic observation.
+
+The same truthfulness rule applies throughout the project.
+
+If evidence is unavailable, the system uses:
+
+```text
+N/A
+UNKNOWN
+UNAVAILABLE
+```
+
+instead of inventing values.
+
+---
+
+# 🔄 Soft Degradation Restoration
+
+Injected network degradation can be removed without treating the link as a hard failure.
+
+Example:
+
+```text
+Operational:
+UP
+
+Health:
+DEGRADED
+
+Configured Delay:
++100 ms
+
+        ↓
+
+Restore Link Quality
+
+        ↓
+
+TC impairment removed
+```
+
+Hard-failure restoration and soft-degradation restoration are different operations.
+
+```text
+Hard Failure:
+
+DOWN → UP
+
+
+Soft Degradation:
+
+UP + DEGRADED → quality restored
+```
+
+---
+
+# 🚨 Degradation Incidents
+
+Health transitions can create degradation incidents.
+
+For example:
+
+```text
+HEALTHY
+   ↓
+DEGRADED
+```
+
+or:
+
+```text
+DEGRADED
+   ↓
+CRITICAL
+```
+
+Incident information can include:
+
+- Affected link
+- Runtime
+- Topology
+- Previous health
+- Current health
+- Detection time
+- Reason
+- Configured impairment
+- Available observed evidence
+
+The system uses transition-based events so that the same unchanged state does not create a duplicate incident on every monitoring cycle.
+
+---
+
+# ⚠️ Phase 5 Validation Status
+
+Phase 5 has passed automated validation.
+
+Current results:
+
+```text
+Backend:
+259 PASSED
+
+Frontend:
+125 PASSED
+
+Application TypeScript:
+PASSED
+
+Test TypeScript:
+PASSED
+
+Production Build:
+PASSED
+
+Browser Fixtures:
+PASSED
+
+Captured Browser Console Errors:
+0
+
+Linux TC Probe:
+PASSED
+
+git diff --check:
+PASSED
+```
+
+The isolated Linux TC probe verified real packet drops and baseline restoration.
+
+## Current Phase 5 Status
+
+> **Implemented and automated-validated; full live Mininet validation is pending.**
+
+Therefore, Phase 5 is **not yet declared fully complete**.
+
+The remaining live validation will verify:
+
+- Delay degradation
+- Packet-loss degradation
+- Link remains operationally UP
+- Actual traffic changes
+- Automatic health classification
+- Degradation restoration
+- Hard-failure regression
+
+---
+
+# 🧪 Experiment Lab
+
+The Experiment Lab supports controlled hard-failure experiments.
+
+It can:
+
+```text
+Select Controller
+      ↓
+Select Topology
+      ↓
+Configure Traffic
+      ↓
+Start Experiment
+      ↓
+Inject Scheduled Failure
+      ↓
+Measure Results
+      ↓
+Store History
+```
+
+Results are persisted using SQLite.
+
+Experiment information can include:
+
+- Controller
+- Topology
+- Traffic configuration
+- Failure
+- Traffic metrics
+- Recovery evidence
+- Service Intent
+- Evaluation result
+
+### Current Phase 5 Limitation
+
+Automated soft-degradation experiments are not implemented yet.
+
+Soft impairments should be cleared before running an existing hard-failure experiment on a reused runtime.
+
+---
+
+# 📊 Analytics & Reporting
+
+Historical experiment results can be analyzed through the dashboard.
+
+The system provides information for comparing:
+
+- Controllers
+- Packet loss
+- Latency
+- Recovery behavior
+- Recovery Verification
+- Service Intent results
+- Different failure scenarios
+
+Technical reports can also be generated from experiment results.
+
+---
+
+# 🖥️ NOC Dashboard
+
+The web application provides the following main views:
+
+- **NOC Overview**
+- **Network Topology**
+- **Controllers**
+- **Traffic Monitor**
+- **Failure Simulator**
+- **Experiment Lab**
+- **Analytics**
+- **Event Logs**
+- **System / Configuration**
+
+Live state is communicated using REST APIs and WebSocket updates.
+
+---
+
+# 🚀 Starting the Project
+
+Inside WSL:
 
 ```bash
-cd /mnt/c/Users/mdani/Projects/self-healing-sdn
+cd /mnt/e/Projects/self-healing-sdn
 bash scripts/start.sh
 ```
-Open `http://localhost:8000` in your web browser.
+
+Then open the dashboard address shown by the startup script.
+
+To stop the project:
+
+```bash
+bash scripts/stop.sh
+```
 
 ---
 
-## 🎮 Step-by-Step Operator Demonstration Guide
+# 🎮 Recommended Demo for Team Members
 
-### Scenario A — Reactive Self-Healing Verification
-1. Open the dashboard at `http://localhost:8000`.
-2. Go to **Controllers** and click **Select Reactive Controller**.
-3. In the top navbar, click **Start Simulation**.
-4. Navigate to **Traffic Monitor** and click **Start Traffic** (e.g. 50 packets @ 0.1s interval).
-5. Watch the active forwarding path (`h1 -> s1 -> s3 -> s4 -> h2`) glow green.
-6. Navigate to **Failure Simulator** (or click link `s1-s3` in **Network Topology**), and click **Disconnect Link**.
-7. Observe in real time:
-   - The link turns dashed crimson.
-   - Ryu detects `LINK DOWN s1 <-> s3`.
-   - The path automatically recalculates to `s1 -> s2 -> s4`.
-   - Controller logs report `HEALED dst=... in 2-4 ms`.
-   - Packet loss remains **0.0%**!
-8. Click **Restore Link** to restore physical connectivity.
+If you are new to this project, understand it in this order.
 
-### Scenario B — Fast Failover Verification
-1. Navigate to **Controllers** and click **Select Fast Failover Controller**.
-2. Click **Start Simulation**.
-3. Switch `s1` automatically installs OpenFlow 1.3 `OFPGT_FF` groups with primary bucket pointing to port 2 (`s1-eth2`) and backup bucket to port 3 (`s1-eth3`).
-4. Generate traffic and disconnect `s1-s2`.
-5. Open vSwitch instantly executes local failover in the datapath with **0% packet loss**.
-6. Ryu independently reconciles global routes in background (`ROUTES RECOMPUTED in ~1 ms`).
+## Demo 1 — Topology
 
-### Scenario C — 3-Way Automated Comparison Lab
-1. Navigate to **Experiment Lab**.
-2. Select **Compare All Controllers (Baseline vs Reactive vs Fast Failover)**.
-3. Configure traffic parameters (e.g. 100 packets, 0.05s interval, failure delay 2.0s).
-4. Click **Run Comparison**.
-5. The orchestrator automatically runs all three controllers through identical failure scenarios, stores results in SQLite, and displays quantitative comparisons.
-6. Click **Export Report** to download the complete technical benchmark as an **HTML** or **CSV** file.
+Start the **Multi-Path Mesh** topology.
+
+Understand:
+
+```text
+Hosts
+Switches
+Links
+Multiple Possible Routes
+```
 
 ---
 
-## 📡 REST API Reference
+## Demo 2 — Controller Comparison
 
-| Method | Endpoint | Description |
-|:-------|:---------|:------------|
-| `GET` | `/api/system/health` | Health-check and platform diagnostics |
-| `GET` | `/api/system/status` | Mininet, OVS, and OpenFlow port status |
-| `GET` | `/api/controllers` | List controllers with active state & features |
-| `POST`| `/api/controllers/select` | Select & launch controller (`baseline`, `reactive`, `fast_failover`) |
-| `GET` | `/api/controllers/logs` | Real-time console logs from running Ryu instance |
-| `POST`| `/api/simulation/start` | Build & launch Mininet diamond topology |
-| `POST`| `/api/simulation/stop` | Cleanly teardown Mininet network |
-| `GET` | `/api/simulation/status` | Current simulation uptime & state |
-| `GET` | `/api/topology` | Discovered nodes, links, and active/backup routes |
-| `GET` | `/api/topology/switch/{dpid}`| Dump OpenFlow flows, groups, and port stats |
-| `POST`| `/api/links/down` | Administrative link down simulation |
-| `POST`| `/api/links/up` | Administrative link restoration |
-| `POST`| `/api/traffic/start` | Start live ICMP traffic stream (`h1 -> h2`) |
-| `POST`| `/api/traffic/stop` | Terminate active traffic process |
-| `GET` | `/api/traffic/stats` | Live telemetry counters & latency history |
-| `POST`| `/api/experiments/run` | Execute automated failure experiment |
-| `GET` | `/api/experiments/history` | Retrieve stored SQLite experiment records |
-| `GET` | `/api/reports/{id}/export` | Export experiment as HTML, CSV, or JSON |
-| `WS`  | `/ws/events` | High-frequency telemetry & event broadcast stream |
+Generate:
+
+```text
+h1 → h2
+```
+
+traffic.
+
+Compare:
+
+```text
+Baseline
+Reactive
+Fast Failover
+```
+
+Inject a hard link failure and observe how each strategy behaves.
 
 ---
 
-## 🛠️ Verification & Testing Summary
+## Demo 3 — Recovery Verification
 
-| Test Area | Target Component | Result | Notes |
-|:---|:---|:---:|:---|
-| **Zero CLI Launcher** | `Start-SDN-Dashboard.ps1` | **PASS** | Successfully verified WSL, started OVS, launched backend, opened browser. |
-| **API Endpoints** | FastAPI Endpoints | **PASS** | All endpoints tested and verified with status 200 OK. |
-| **Reactive Controller** | `controller_reactive.py` | **PASS** | Real reroute executed; logged `HEALED in 3.2 ms` with 0.0% packet loss. |
-| **Fast Failover** | `controller_ff.py` | **PASS** | Groups installed in OVS; route recomputed in 1.2 ms with 0% loss. |
-| **Mininet Isolation** | `mininet_worker.py` | **PASS** | Managed via Unix domain socket; safe scoped cleanup without killing Ryu. |
-| **Telemetry & Reporting** | SQLite & HTML Export | **PASS** | Experiments stored and exported to printable HTML and JSON. |
-| **Web UI Integration** | React Flow & Recharts | **PASS** | Validated across all 9 pages with live browser subagent recording. |
+Use the Reactive Controller.
+
+```text
+Start Traffic
+     ↓
+Fail Active Link
+     ↓
+Automatic Recovery
+     ↓
+Recovery Verification
+```
+
+The result may become:
+
+```text
+VERIFIED
+DEGRADED
+FAILED
+```
 
 ---
 
-## 👨‍💻 Authors & Academic Context
+## Demo 4 — Service Intent
 
-- **Course**: Computer Communication and Networks (CCN)
-- **Project**: Self-Healing SDN Web Control Center
-- **Environment**: WSL2 Ubuntu 22.04 LTS on Windows 11
-- **SDN Stack**: Ryu 4.34, Mininet 2.3.0, Open vSwitch 2.17.12, OpenFlow 1.3
+Select the:
+
+```text
+Interactive / Low Latency
+```
+
+profile.
+
+Perform a recovery scenario.
+
+The system can produce:
+
+```text
+Recovery VERIFIED ✅
+
+but
+
+Intent VIOLATED ❌
+```
+
+This demonstrates the difference between restoring connectivity and restoring acceptable application service.
+
+---
+
+## Demo 5 — Soft Degradation
+
+After full Phase 5 live validation:
+
+```text
+Link stays UP
+      ↓
+Inject Real Delay / Loss
+      ↓
+Traffic Quality Changes
+      ↓
+Health Detector Evaluates Evidence
+      ↓
+DEGRADED / CRITICAL
+```
+
+Then restore link quality.
+
+This demonstrates the difference between:
+
+```text
+Hard Failure
+```
+
+and:
+
+```text
+Soft Degradation
+```
+
+---
+
+# 💡 What Makes This Project Different?
+
+The project should not be presented as unique simply because it reroutes traffic after a link failure.
+
+SDN rerouting and self-healing concepts already exist.
+
+Our project differentiates itself through the integration of multiple resilience stages:
+
+```text
+Network Problem
+      ↓
+Detection
+      ↓
+Recovery Strategy
+      ↓
+Real Traffic Evidence
+      ↓
+Recovery Verification
+      ↓
+Service Intent Evaluation
+      ↓
+Network Health / Degradation Awareness
+```
+
+Important capabilities include:
+
+- Multiple recovery strategies
+- Multiple network topologies
+- Real traffic measurements
+- Hard failure testing
+- Recovery Verification
+- Service Intent evaluation
+- Technical recovery vs application-quality distinction
+- Soft degradation detection
+- Real TC impairment
+- Operational-state vs health-state separation
+- Configured-vs-observed evidence separation
+- Runtime/stale-state protection
+- Experiment history
+- Analytics and reporting
+
+The project is moving from:
+
+```text
+"Link failed → choose another route"
+```
+
+toward:
+
+```text
+"Detect → Recover → Verify → Evaluate → Improve"
+```
+
+---
+
+# 🔮 Next Phase — Adaptive Healing
+
+**Adaptive Healing is NOT implemented yet.**
+
+This is planned for Phase 6.
+
+Currently, Phase 5 can detect conditions such as:
+
+```text
+Link:
+UP
+
+Network Quality:
+DEGRADED
+```
+
+Phase 6 will use network-health evidence together with Service Intent to make better recovery decisions.
+
+Target workflow:
+
+```text
+Failure / Degradation
+        ↓
+Detection
+        ↓
+Service Intent
+        ↓
+Network Health
+        ↓
+Candidate Recovery Options
+        ↓
+Adaptive Recovery Decision
+        ↓
+Recovery Verification
+        ↓
+Intent Evaluation
+        ↓
+     SATISFIED?
+      /      \
+    YES       NO
+     ↓         ↓
+   Finish    Re-evaluate
+               ↓
+             Re-heal
+```
+
+The important improvement will be:
+
+> **Service requirements and network health will influence the recovery decision rather than only evaluating the result afterward.**
+
+Until Phase 6 is implemented and tested, the project does not claim adaptive routing or closed-loop re-healing.
+
+---
+
+# 🔮 Future — Explainable Incident Analysis
+
+A later phase will combine information from the complete incident.
+
+Example:
+
+```text
+NETWORK INCIDENT
+
+Affected Link:
+s2 ↔ s5
+
+Detected Problem:
+Network degradation
+
+Service:
+Interactive / Low Latency
+
+Requirement:
+Loss <= 1%
+RTT <= 25 ms
+
+Initial Evidence:
+High latency / loss
+
+Recovery Action:
+Selected recovery strategy
+
+Recovery Verification:
+VERIFIED
+
+Intent Evaluation:
+SATISFIED
+
+Final Result:
+Service restored successfully
+```
+
+The goal is to explain:
+
+- What happened?
+- Why was it considered a problem?
+- Which service was affected?
+- What action was taken?
+- Did traffic recover?
+- Did the application requirement recover?
+
+---
+
+# 🗺️ Project Roadmap
+
+```text
+PHASE 1
+Professional NOC / UI
+✅ DONE
+
+PHASE 2
+Multi-Path Mesh Topology
+✅ DONE
+
+PHASE 3
+Recovery Verification Engine
+✅ DONE
+
+PHASE 4
+Service Intent Evaluation
+✅ DONE
+
+PHASE 5
+Soft Failure / Network Degradation Detection
+⚙️ IMPLEMENTED
+⏳ Full Live Validation Pending
+
+PHASE 6
+Adaptive Healing + Closed-Loop Re-Healing
+🔮 PLANNED
+
+PHASE 7
+Explainable Incident Analysis
+🔮 PLANNED
+```
+# 📚 Academic Context
+
+**Course:** Computer Communication and Networks (CCN)
+
+**Project:** Self-Healing SDN Control Center
+
+**Environment:** WSL2 Ubuntu 22.04
+
+**SDN Stack:**
+
+```text
+Ryu 4.34
+Mininet 2.3.0
+Open vSwitch 2.17.12
+OpenFlow 1.3
