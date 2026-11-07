@@ -14,7 +14,8 @@ from backend.services.mininet_client import mininet_client
 from backend.services.traffic_service import traffic_service
 from backend.services.experiment_runner import experiment_runner
 from backend.services.recovery_verification import verification_engine
-from backend.database.db import save_verification
+from backend.database.db import save_verification, save_intent_evaluation
+from backend.api.intents import router as intents_router
 from backend.api.verification import router as verification_router
 from backend.api import (
     system_router,
@@ -59,12 +60,14 @@ app.include_router(traffic_router)
 app.include_router(experiments_router)
 app.include_router(reports_router)
 app.include_router(verification_router)
+app.include_router(intents_router)
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing SQLite database...")
     init_db()
     verification_engine.persist = save_verification
+    verification_engine.intent_engine.persist = save_intent_evaluation
     verification_engine.health = lambda record: (controller_manager.generation == record['controller_generation'] and
                                                  controller_manager.status == 'READY')
     logger.info("SDN Control Center backend initialized.")
@@ -106,6 +109,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
             "experiment_run_id": experiment_runner.current_run_id,
             "active_paths": [],  # Controller log intent is not verified forwarding.
             "verification": verification_engine.current(),
+            "intent_evaluation": verification_engine.intent_engine.current(),
             "timestamp": time.time()
         })
         while True:

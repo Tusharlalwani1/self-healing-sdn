@@ -32,6 +32,7 @@ test('backend transitions render all five states without frontend classification
   for(const verification_status of ['NOT_STARTED','VERIFYING','VERIFIED','DEGRADED','FAILED'] as const){
     const value=record({verification_status});
     const html=renderToStaticMarkup(<RecoveryVerificationCard verification={value}/>);
+    assert.ok(html.includes('Post-Recovery Avg RTT'));
     assert.ok(html.includes(verification_status.replaceAll('_',' ')));
     assert.ok(html.includes('UNAVAILABLE'));
   }

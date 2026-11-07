@@ -11,6 +11,7 @@ import {
   SystemStatus,
 } from "../types";
 
+import type { IntentEvaluation, IntentSelection, ServiceIntent } from './intent';
 const BASE_URL = "";
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
@@ -50,6 +51,9 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getIntentProfiles: () => fetchJson<ServiceIntent[]>('/api/intents/profiles'),
+  validateIntent: (selection: IntentSelection) => fetchJson<ServiceIntent>('/api/intents/validate', {method:'POST', body:JSON.stringify(selection)}),
+  getIntentEvaluation: () => fetchJson<IntentEvaluation | null>('/api/intents/evaluation/current'),
   getVerification: () => fetchJson<RecoveryVerification | null>('/api/verification/current'),
   // System
   getHealth: () => fetchJson<{ status: string }>("/api/system/health"),
@@ -154,6 +158,7 @@ export const api = {
     interval?: number;
     count?: number;
     job_id?: string;
+    service_intent?: IntentSelection;
   }) =>
     fetchJson<
       {
@@ -182,6 +187,7 @@ export const api = {
     fail_link_src?: string;
     fail_link_dst?: string;
     repetitions?: number;
+    service_intent?: IntentSelection;
   }) =>
     fetchJson<
       | ExperimentRecord

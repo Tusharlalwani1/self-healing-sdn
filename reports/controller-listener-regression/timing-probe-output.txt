@@ -1,0 +1,45 @@
+runTest (__main__.ListenerTimingProbe) ... 2026-11-07 23:24:24,157 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:24:24,160 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:24:25,977 [WARNING] (worker) Executing <TimerHandle when=80981.374829152 ListenerTimingProbe.runTest.<locals>.stall() at /mnt/e/Projects/self-healing-sdn/reports/controller-listener-regression/listener_timing_probe.py:33 created at /mnt/e/Projects/self-healing-sdn/reports/controller-listener-regression/listener_timing_probe.py:40> took 0.402 seconds
+2026-11-07 23:24:26,006 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:24:26,067 [INFO] (worker) Stopping controller reactive...
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 2.505s
+
+OK
+{
+  "old_assertion_snapshot": {
+    "state": "READY",
+    "since_listener_loss": 1.2691232200013474,
+    "watcher_done": false,
+    "process_returncode": null,
+    "watcher_stack": [
+      "_watch_controller:316"
+    ]
+  },
+  "event_synchronized_state": "FAILED",
+  "timeline": [
+    {
+      "event": "STARTING",
+      "elapsed": 0.0014411230076802894
+    },
+    {
+      "event": "READY",
+      "elapsed": 1.0707537720008986
+    },
+    {
+      "event": "stall_start",
+      "elapsed": 1.94760280099581
+    },
+    {
+      "event": "stall_end",
+      "elapsed": 2.349933574005263
+    },
+    {
+      "event": "FAILED",
+      "elapsed": 2.3794488809944596
+    }
+  ]
+}

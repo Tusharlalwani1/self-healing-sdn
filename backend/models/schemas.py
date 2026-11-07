@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any, Union, Literal
 from pydantic import BaseModel, Field
+from backend.models.intent import IntentSelection
 
 class ControllerInfo(BaseModel):
     id: str
@@ -61,6 +62,7 @@ class LinkActionRequest(BaseModel):
     node2: str = Field(..., pattern=r"^[A-Za-z0-9_-]{1,32}$")
 
 class TrafficStartRequest(BaseModel):
+    service_intent: Optional[IntentSelection] = None
     src: str = Field("h1", pattern=r"^[A-Za-z0-9_-]{1,32}$")
     dst: str = Field("h2", pattern=r"^[A-Za-z0-9_-]{1,32}$")
     interval: float = Field(0.05, gt=0, allow_inf_nan=False)
@@ -89,6 +91,7 @@ class TrafficStats(BaseModel):
     history: List[Dict[str, Any]] = []
 
 class ExperimentRunRequest(BaseModel):
+    service_intent: Optional[IntentSelection] = None
     topology_id: Optional[Literal["diamond", "multipath_mesh"]] = None
     run_id: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
     controller: Literal["baseline", "reactive", "fast_failover", "comparison"] = "reactive"

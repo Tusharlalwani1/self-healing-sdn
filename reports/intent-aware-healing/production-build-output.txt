@@ -1,0 +1,25 @@
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2673 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.88 kB │ gzip:   0.49 kB
+dist/assets/index-D70FHfhM.css   81.28 kB │ gzip:  16.27 kB
+dist/assets/index-B-CEVPj8.js   893.78 kB │ gzip: 263.72 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 47.37s
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 3.2s of this 48.3s build (7%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin @tailwindcss/vite:generate:build transform (5%, 2.6s, 3 calls)
+Additional callback time came from callbacks under 1s.
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+

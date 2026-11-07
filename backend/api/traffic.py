@@ -1,9 +1,9 @@
-from backend.api.runtime_route import RuntimeRoute
+from backend.api.intent_route import IntentRoute
 from fastapi import APIRouter, HTTPException
 from backend.models.schemas import TrafficStartRequest
 from backend.services.traffic_service import traffic_service
 
-router = APIRouter(prefix="/api/traffic", tags=["Traffic"], route_class=RuntimeRoute)
+router = APIRouter(prefix="/api/traffic", tags=["Traffic"], route_class=IntentRoute)
 
 @router.post("/start")
 async def start_traffic(req: TrafficStartRequest):
@@ -12,7 +12,8 @@ async def start_traffic(req: TrafficStartRequest):
         dst=req.dst,
         interval=req.interval,
         count=req.count,
-        job_id=req.job_id
+        job_id=req.job_id,
+        service_intent=req.service_intent
     )
 
 @router.post("/stop")

@@ -1,5 +1,9 @@
 import { PageHeader } from '../components/ui/Primitives';
 import React from 'react';
+import { ServiceIntentEditor } from '../components/ServiceIntentEditor';
+import { ServiceIntentCard } from '../components/ServiceIntentCard';
+import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
+import { useIntentConfigurationStore } from '../stores/intentConfigurationStore';
 import { Radio, Play, Square, Gauge, Activity, Clock, BarChart2 } from 'lucide-react';
 import { useSDNStore } from '../stores/sdnStore';
 import { useTrafficConfigurationStore } from '../stores/trafficConfigurationStore';
@@ -22,8 +26,9 @@ export const TrafficView: React.FC = () => {
 
   const handleStart = async () => {
     try {
-      await startTraffic({ src, dst, interval, count });
+      await startTraffic({ src, dst, interval, count, service_intent:useIntentConfigurationStore.getState().selection('traffic') });
     } catch (e) {
+      useSDNStore.setState({error:e instanceof Error ? e.message : 'Unable to start traffic'});
       console.error(e);
     }
   };
@@ -101,6 +106,7 @@ export const TrafficView: React.FC = () => {
             </div>
           </div>
 
+          <ServiceIntentEditor workflow="traffic"/>
           <div className="pt-2">
             {trafficStats.active ? (
               <button
@@ -146,7 +152,7 @@ export const TrafficView: React.FC = () => {
           </div>
 
           <div className="panel p-4 rounded-md border border-slate-800/80 flex flex-col justify-between">
-            <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Average RTT</span>
+            <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Overall Job Avg RTT</span>
             <div className="text-2xl font-bold text-accent font-mono mt-2">
               {trafficStats.avg_rtt != null ? `${trafficStats.avg_rtt.toFixed(1)}ms` : 'N/A'}
             </div>
@@ -170,6 +176,8 @@ export const TrafficView: React.FC = () => {
         </div>
       </div>
 
+      <RecoveryVerificationCard/>
+      <ServiceIntentCard/>
       {/* Main RTT Latency Chart */}
       <div className="panel p-5 rounded-md border border-slate-800/80 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">

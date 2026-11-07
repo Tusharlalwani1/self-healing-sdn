@@ -1,3 +1,4 @@
+import { ServiceIntentCard } from '../components/ServiceIntentCard';
 import { ZapOff, RefreshCw } from "lucide-react";
 import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { useSDNStore } from "../stores/sdnStore";
@@ -27,6 +28,7 @@ export function FailureSimulatorView() {
         description="Disconnect a specific reported link, observe the response, and restore connectivity."
       />
       <RecoveryVerificationCard />
+      <ServiceIntentCard/>
       <Panel title="Common link presets">
         <div className="preset-actions">
           <p className="muted">

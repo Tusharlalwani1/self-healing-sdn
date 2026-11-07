@@ -9,6 +9,8 @@ from backend.services.metrics import experiment_metrics, TIMING_SCOPE
 def export_record(record):
     return {**experiment_metrics(record), "topology_id": record.get("summary", {}).get("topology_id"),
             "verification": record.get('summary', {}).get('verification'),
+            "service_intent": record.get('summary', {}).get('service_intent'),
+            "intent_evaluation": record.get('summary', {}).get('intent_evaluation'),
             "topology_label": record.get("summary", {}).get("topology_label"),
             "metric_semantics": {"recovery_duration_ms": TIMING_SCOPE,
             "packet_level_outage": "Not measured", "local_ff_switching_time": "Not measured"}}
@@ -33,7 +35,8 @@ class ReportGenerator:
             "recovery_event", "controller_processing_ms", "timing_scope",
             "verification_status", "verification_reason", "post_recovery_tx", "post_recovery_rx",
             "post_recovery_loss_percent", "post_recovery_avg_rtt_ms", "post_recovery_min_rtt_ms", "post_recovery_max_rtt_ms",
-            "path_verification_status", "verification_started_at", "verification_completed_at", "verification_duration_sec"
+            "path_verification_status", "verification_started_at", "verification_completed_at", "verification_duration_sec",
+            "intent_evaluation_status", "intent_reason_code", "intent_profile", "intent_snapshot_json", "intent_requirements_json", "intent_evaluation_id", "intent_verification_id", "intent_measurement_source"
         ]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -46,6 +49,13 @@ class ReportGenerator:
             verification = exp.get('summary', {}).get('verification') or {}
             row.update({key: verification.get(key) for key in fieldnames if key.startswith(('post_recovery_', 'path_verification_', 'verification_'))})
             row['verification_reason'] = verification.get('reason')
+            intent = exp.get('summary', {}).get('intent_evaluation') or {}
+            snapshot = exp.get('summary', {}).get('service_intent')
+            row.update(intent_evaluation_status=intent.get('evaluation_status'), intent_reason_code=intent.get('reason_code'),
+                intent_profile=(snapshot or {}).get('name'), intent_snapshot_json=json.dumps(snapshot) if snapshot else None,
+                intent_requirements_json=json.dumps(intent['requirements']) if intent else None,
+                intent_evaluation_id=intent.get('evaluation_id'), intent_verification_id=intent.get('verification_id'),
+                intent_measurement_source=intent.get('measurement_source'))
             writer.writerow({key: "N/A" if row.get(key) is None else row[key] for key in fieldnames})
         return output.getvalue()
 
@@ -65,6 +75,12 @@ class ReportGenerator:
             'post_recovery_min_rtt_ms', 'post_recovery_max_rtt_ms', 'reachability_restored', 'stability_passed',
             'path_verification_status', 'path_verification_reason', 'verification_started_at',
             'verification_completed_at', 'verification_duration_sec', 'evidence_scope'))
+
+        intent = experiment.get('summary', {}).get('intent_evaluation') or {}
+        intent_rows = ''.join('<tr>' + ''.join('<td>' + escape(str(display(value))) + '</td>' for value in (
+            name, item['target'], item['actual'], item['unit'], item['status'])) + '</tr>'
+            for name, item in intent.get('requirements', {}).items())
+        snapshot = experiment.get('summary', {}).get('service_intent') or {}
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -116,6 +132,12 @@ class ReportGenerator:
     <h2>Detailed Telemetry Metrics</h2>
     <h2>Independent Recovery Verification</h2>
     <table>{verification_rows}</table>
+    <h2>Service Intent Evaluation</h2>
+    <p>{escape(str(intent.get('evaluation_status') or 'N/A'))}: {escape(str(intent.get('reason') or 'Not recorded'))}</p>
+    <p>Profile: {escape(str(snapshot.get('name') or 'N/A'))}; Priority (metadata): {escape(str(snapshot.get('priority') or 'N/A'))}</p>
+    <p>Verification ID: {escape(str(intent.get('verification_id') or 'N/A'))}. Intent evaluation uses measured post-failure evidence produced by the Recovery Verification Engine.</p>
+    <table><tr><th>Requirement</th><th>Target</th><th>Actual</th><th>Unit</th><th>Result</th></tr>{intent_rows}</table>
+    <p>Recovery VERIFIED does not necessarily mean Service Intent SATISFIED. Project demonstration defaults are not universal SLA standards. No QoS enforcement or routing changes.</p>
     <p>{TIMING_SCOPE}. Packet-level outage and local FF switching time: not measured.</p>
     <table>
         <tr><th>Parameter</th><th>Value</th></tr>

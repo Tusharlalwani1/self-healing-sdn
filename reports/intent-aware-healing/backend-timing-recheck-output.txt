@@ -1,0 +1,9 @@
+2026-11-07 22:50:57,282 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 22:50:57,284 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 22:50:58,883 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 22:50:58,957 [INFO] (worker) Stopping controller reactive...
+..
+----------------------------------------------------------------------
+Ran 2 tests in 5.782s
+
+OK
