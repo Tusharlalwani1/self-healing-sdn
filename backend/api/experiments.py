@@ -1,4 +1,4 @@
-from backend.api.runtime_route import RuntimeRoute
+from backend.api.intent_route import IntentRoute
 from fastapi import APIRouter, HTTPException
 from backend.models.schemas import ExperimentRunRequest
 from backend.services.experiment_runner import experiment_runner
@@ -6,7 +6,7 @@ from backend.database.db import get_experiments, get_experiment_by_id, delete_ex
 from backend.services.runtime_control import runtime_transition_lock
 from backend.services.operation_error import OperationError
 
-router = APIRouter(prefix="/api/experiments", tags=["Experiments"], route_class=RuntimeRoute)
+router = APIRouter(prefix="/api/experiments", tags=["Experiments"], route_class=IntentRoute)
 
 @router.post("/run")
 async def run_experiment(req: ExperimentRunRequest):
@@ -20,7 +20,7 @@ async def run_experiment(req: ExperimentRunRequest):
         failure_delay_sec=req.failure_delay_sec,
         fail_src=req.fail_link_src,
         fail_dst=req.fail_link_dst,
-        repetitions=req.repetitions, run_id=req.run_id
+        repetitions=req.repetitions, run_id=req.run_id, service_intent=req.service_intent
     )
 
 @router.post("/cancel")

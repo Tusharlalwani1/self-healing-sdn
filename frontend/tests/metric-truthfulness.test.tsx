@@ -107,6 +107,7 @@ test('traffic 100 percent loss retains actual counters and N/A RTT', () => {
   useSDNStore.setState({ trafficStats: { ...emptyTraffic(), job_id: 'owned', transmitted: 8,
     received: 0, loss_percent: 100, avg_rtt: null, accounting_complete: true } });
   const html = renderToStaticMarkup(<TrafficView />);
+  assert.ok(html.includes('Overall Job Avg RTT'));
   assert.match(html, /100%/);
   assert.match(html, /N\/A/);
   assert.match(html, /FINAL \/ IDLE/);

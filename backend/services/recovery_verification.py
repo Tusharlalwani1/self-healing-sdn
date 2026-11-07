@@ -7,6 +7,7 @@ import json
 import time
 import uuid
 from backend.models.verification import RecoveryVerification
+from backend.services.service_intent import IntentEvaluationEngine
 from backend.services.operation_error import OperationError, public_error
 from backend.services.verification_config import VERIFICATION_CONFIG
 from backend.websocket.manager import ws_manager
@@ -47,6 +48,7 @@ class RecoveryVerificationEngine:
     def __init__(self, config=VERIFICATION_CONFIG, persist=None, broadcast=None):
         self.config, self.persist = config, persist
         self.broadcast = broadcast or ws_manager.broadcast
+        self.intent_engine = IntentEvaluationEngine(self)
         self.health = None
         self.latest = None
         self.tasks = {}
@@ -76,6 +78,8 @@ class RecoveryVerificationEngine:
                 record['persistence_error'] = 'Verification persistence failed; check backend logs.'
         await self.broadcast({'event_type': 'RECOVERY_VERIFICATION', **{k: record[k] for k in
                               ('runtime_id', 'runtime_revision')}, 'verification': copy.deepcopy(record)})
+
+        await self.intent_engine.update(copy.deepcopy(record))
 
     async def begin(self, client, job_id, failed_link, failure_timestamp, before=None, incident_id=None, failure_context=None):
         async with self._begin_lock:
@@ -109,6 +113,9 @@ class RecoveryVerificationEngine:
             controller_mode=client.controller_type, controller_generation=client.controller_generation,
             experiment_id=owner.get('experiment_id'), job_id=job_id,
             source_host=owner.get('src'), destination_host=owner.get('dst'),
+            service_intent=copy.deepcopy(owner.get('service_intent')) if (
+                owner.get('runtime_id') == client.runtime_id and owner.get('controller_generation') == client.controller_generation) else None,
+            traffic_sequence=owner.get('traffic_sequence'),
             failed_link=list(failed_link), failure_timestamp=failure_timestamp,
             verification_status='NOT_STARTED', reason_code='NO_ACTIVE_TRAFFIC',
             reason='No active end-to-end traffic evidence is available for recovery verification.',

@@ -41,14 +41,15 @@ class TrafficService:
         if self.latest_stats.get("runtime_id", mininet_client.runtime_id) != mininet_client.runtime_id:
             self._runtime_changed([])
 
-    async def start(self, src="h1", dst="h2", interval=0.05, count=200, job_id=None) -> Dict[str, Any]:
+    async def start(self, src="h1", dst="h2", interval=0.05, count=200, job_id=None, service_intent=None) -> Dict[str, Any]:
         async with self._action_lock:
             self._bind()
             if self.active_job_id:
                 await self._stop()
             job_id = job_id or f"traffic_{uuid.uuid4().hex}"
             runtime_id = mininet_client.runtime_id
-            res = await mininet_client.start_traffic(src, dst, interval, count, job_id)
+            res = await mininet_client.start_traffic(src, dst, interval, count, job_id,
+                **({"service_intent": service_intent} if service_intent is not None else {}))
             if runtime_id != mininet_client.runtime_id or mininet_client.simulation_state != "RUNNING":
                 raise OperationError(409, "Runtime changed while starting traffic")
             self.active_job_id = job_id

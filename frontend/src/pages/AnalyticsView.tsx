@@ -1,3 +1,5 @@
+import { ServiceIntentCard } from '../components/ServiceIntentCard';
+import { intentCounts, intentNumber } from '../services/intent';
 import { topologyLabel } from "../stores/topologySelectionStore";
 import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { PageHeader } from "../components/ui/Primitives";
@@ -41,6 +43,7 @@ export const AnalyticsView: React.FC = () => {
       ),
     [experimentsHistory, topologyFilter],
   );
+  const intentSummary = intentCounts(experimentsHistory.filter(exp => topologyFilter === 'all' || (exp.summary?.topology_id || 'unknown') === topologyFilter));
   const baseline = comparisonData.find((row) => row.controller === "baseline");
   const reactive = comparisonData.find((row) => row.controller === "reactive");
   const ff = comparisonData.find((row) => row.controller === "fast_failover");
@@ -72,10 +75,15 @@ export const AnalyticsView: React.FC = () => {
           <option value="unknown">Topology not recorded</option>
         </select>
       </label>
+      <section className="panel"><div className="panel-heading"><h2>Service intent ? loaded experiment history</h2></div>
+        <div className="panel-body"><p>Recorded evaluations: {intentSummary.total} ? Satisfied: {intentSummary.satisfied} ? Violated: {intentSummary.violated} ? Unavailable: {intentSummary.unavailable}</p>
+          <p>Satisfied rate among evaluable records: {intentNumber(intentSummary.satisfiedRate, '%')}. Older records without intent evidence are excluded.</p>
+          <p>Requirement failures: {Object.entries(intentSummary.reasons).map(([name,count]) => name + ': ' + count).join(', ') || 'None recorded'}</p>
+        </div></section>
       <section className="panel"><div className="panel-heading"><h2>Recovery verification · loaded history</h2></div>
         <div className="panel-body">{experimentsHistory.filter(exp => topologyFilter === 'all' || (exp.summary?.topology_id || 'unknown') === topologyFilter).map(exp =>
           <details key={exp.id}><summary>{exp.id}: {exp.summary?.verification?.verification_status || 'Not recorded'}</summary>
-            <RecoveryVerificationCard verification={exp.summary?.verification || null}/></details>)}
+            <RecoveryVerificationCard verification={exp.summary?.verification || null}/><ServiceIntentCard evaluation={exp.summary?.intent_evaluation || null} intent={exp.summary?.service_intent || null}/></details>)}
           {!experimentsHistory.length && <p>No recorded verification evidence.</p>}
         </div></section>
       {/* 3 Summary Cards */}

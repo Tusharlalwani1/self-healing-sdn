@@ -1,3 +1,4 @@
+import { intentProfilesFixture } from './intentFixture.ts';
 // Isolated production-bundle browser test. All API/WS data below is a fixture;
 // this server never forwards traffic to FastAPI, Mininet, Ryu, OVS or SQLite.
 import { createServer } from 'node:http';
@@ -12,7 +13,7 @@ await mkdir(out,{recursive:true});
 let mode='reactive',running=false,topologyId='diamond',revision=1,records=[];
 let snapshot={...structuredClone(meshSnapshot),nodes:[],links:[],switches:[],hosts:[],active_paths:[]};
 const requests=[],checks=[],consoleErrors=[];
-let verificationFixtureState=null;
+let verificationFixtureState=null, intentFixtureState=null;
 function state(){return {...snapshot,topology_id:topologyId,topology_label:options.find(o=>o.id===topologyId).label,active_topology_id:running?topologyId:null,runtime_id:`fixture-${revision}`,runtime_revision:revision,simulation_state:running?'RUNNING':'STOPPED',active_controller:mode};}
 function network(id){
   if(id==='multipath_mesh')return structuredClone(meshSnapshot);
@@ -30,6 +31,8 @@ const server=createServer(async(req,res)=>{
     if(path==='/api/controllers/select'){mode=body.controller_type;return json({status:'ok',controller:mode});}
     if(path==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(path==='/api/events/logs')return json([]);
+    if(path==='/api/intents/profiles')return json(intentProfilesFixture);
+    if(path==='/api/intents/evaluation/current')return json(running && intentFixtureState?.runtime_id===state().runtime_id ? intentFixtureState : null);
     if(path==='/api/verification/current')return json(running && verificationFixtureState?.runtime_id===state().runtime_id ? verificationFixtureState : null);
     if(path==='/api/traffic/stats')return json({runtime_id:state().runtime_id,traffic_sequence:0,active:false,transmitted:0,received:0,loss_percent:0,duration_sec:0,history:[]});
     if(path==='/api/simulation/start'){topologyId=body.topology_id;mode=body.controller_type||mode;snapshot=network(topologyId);running=true;revision++;return json({status:'ok',...state()});}
@@ -42,7 +45,7 @@ const server=createServer(async(req,res)=>{
     if(path.startsWith('/api/topology/switch/'))return json({dpid:Number(path.split('/').at(-1)),switch:'s'+path.split('/').at(-1),flows:[],groups:[],ports:[]});
     if(path==='/api/experiments/history')return json(records);
     if(path==='/api/experiments/run'){
-      const record={id:'mesh-ui-fixture',run_id:body.run_id,controller:body.controller,status:'COMPLETED',start_time:'2026-11-05T00:00:00',failure_link:`${body.fail_link_src}-${body.fail_link_dst}`,packets_transmitted:null,packets_received:null,packet_loss_percent:null,avg_rtt_ms:null,recovery_duration_ms:null,summary:{topology_id:body.topology_id,topology_label:options.find(o=>o.id===body.topology_id).label,fixture:true}};
+      const record={id:'mesh-ui-fixture',run_id:body.run_id,controller:body.controller,status:'COMPLETED',start_time:'2026-11-05T00:00:00',failure_link:`${body.fail_link_src}-${body.fail_link_dst}`,packets_transmitted:null,packets_received:null,packet_loss_percent:null,avg_rtt_ms:null,recovery_duration_ms:null,summary:{service_intent:body.service_intent?.custom,intent_evaluation:intentFixtureState,verification:verificationFixtureState,topology_id:body.topology_id,topology_label:options.find(o=>o.id===body.topology_id).label,fixture:true}};
       records=[record];return json(record);
     }
     if(path.startsWith('/api/'))throw new Error('Unexpected fixture API '+path);
@@ -104,12 +107,36 @@ try{
   checks.push('Native s9/h2 inspection, Escape, dynamic 16-link failure inventory, exact s6-s9 mutation and restore styling');
   await nav('experiment');await waitFor('document.querySelectorAll("#experimentlabview-field-1 option").length===14');
   await evaluate('(()=>{const e=document.querySelector("#experimentlabview-field-1");e.value="s6-s9";e.dispatchEvent(new Event("change",{bubbles:true}));})()');
-  await click('Run Automated Experiment');await waitFor('document.querySelector(".experimentlab-page tbody").textContent.includes("mesh-ui-fixture")');
+  await select('Service intent profile','custom');
+  const input=async(label,value)=>evaluate(`(()=>{const e=document.querySelector('input[aria-label="${label}"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await input('Intent maximum RTT','25');await input('Intent maximum loss','1');await select('Intent priority','HIGH');
+  verificationFixtureState={...verificationFixture,verification_id:'intent-demo',failure_timestamp:10,verification_status:'VERIFIED',verification_duration_sec:3.5,post_recovery_tx:40,post_recovery_rx:40,post_recovery_loss_percent:0,post_recovery_avg_rtt_ms:32.1525,reachability_restored:true,stability_passed:true};
+  intentFixtureState={evaluation_id:'intent-demo',verification_id:'intent-demo',verification_status:'VERIFIED',runtime_id:state().runtime_id,runtime_revision:revision,topology_id:'multipath_mesh',controller_mode:'reactive',controller_generation:'fixture-g1',experiment_id:null,job_id:'fixture-job',source_host:'h1',destination_host:'h2',failed_link:['s6','s9'],failure_timestamp:10,intent_snapshot:{profile_id:'custom',name:'Custom',priority:'HIGH',require_reachability:true,max_loss_percent:1,max_avg_rtt_ms:25},evaluation_status:'VIOLATED',reason:'Measured RTT exceeded the intent threshold.',reason_code:'RTT_THRESHOLD_EXCEEDED',created_at:10,completed_at:14,measurement_source:'Recovery Verification Engine',evidence:{},requirements:{reachability:{target:true,actual:true,unit:'',status:'PASS'},packet_loss:{target:1,actual:0,unit:'%',status:'PASS'},average_rtt:{target:25,actual:32.1525,unit:'ms',status:'FAIL'}}};
+  await evaluate(`window.__emit(${JSON.stringify({event_type:'RECOVERY_VERIFICATION',verification:verificationFixtureState})})`);
+  await evaluate(`window.__emit(${JSON.stringify({event_type:'INTENT_EVALUATION',evaluation:intentFixtureState})})`);
+  await waitFor(`document.querySelector('.experimentlab-page').textContent.includes('32.15 ms') && Array.from(document.querySelectorAll('.experimentlab-page .status')).some(s=>s.textContent==='VIOLATED')`);
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('.experimentlab-page .status')).some(s=>s.textContent==='VERIFIED')`));
+  assert.equal(await evaluate(`document.querySelector('.experimentlab-page .service-intent-card details').open`),false);
+  assert.equal(await evaluate(`document.querySelectorAll('.experimentlab-page .service-intent-card .intent-requirement-failed').length`),1);
+  assert.ok(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.service-intent-card .intent-comparison td')).paddingLeft)>=10`));
+  assert.ok(await evaluate(`document.querySelector('.service-intent-card .intent-summary').textContent.includes('Recovered service did not meet')`));
+  await evaluate(`document.querySelector('.service-intent-card summary').click()`);
+  assert.ok(await evaluate(`document.querySelector('.service-intent-card details').open && document.querySelector('.service-intent-card details').textContent.includes('RTT_THRESHOLD_EXCEEDED')`));
+  await evaluate(`document.querySelector('.service-intent-card summary').click()`);
+  await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+  await evaluate(`document.querySelector('.service-intent-card').scrollIntoView({block:'center'})`);
+  assert.ok(await evaluate(`(()=>{const card=document.querySelector('.service-intent-card');const table=card.querySelector('.intent-comparison-scroll');return card.getBoundingClientRect().right<=innerWidth && table.scrollWidth>=table.clientWidth})()`));
+  await screenshot('intent-mobile-fixture');
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
+  await screenshot('intent-verified-but-violated-fixture');
+  checks.push('Custom intent editor captures 25 ms / 1% / HIGH; production cards show Recovery VERIFIED and Intent VIOLATED with 32.15 ms actual evidence');
+  await click('Run Automated Experiment');await waitFor('Array.from(document.querySelectorAll(".experimentlab-page tbody")).some(t=>t.textContent.includes("mesh-ui-fixture"))');
   const experiment=requests.find(r=>r.path==='/api/experiments/run').body;
   assert.equal(experiment.topology_id,'multipath_mesh');assert.equal(experiment.fail_link_src,'s6');assert.equal(experiment.fail_link_dst,'s9');
-  assert.equal(experiment.packet_count,300);assert.ok(experiment.run_id);
-  assert.ok(await evaluate('document.querySelector(".experimentlab-page tbody").textContent.includes("Multi-Path Mesh")'));
+  assert.equal(experiment.packet_count,300);assert.ok(experiment.run_id);assert.equal(experiment.service_intent.custom.max_avg_rtt_ms,25);assert.equal(experiment.service_intent.custom.max_loss_percent,1);assert.equal(experiment.service_intent.custom.priority,'HIGH');
+  assert.ok(await evaluate('Array.from(document.querySelectorAll(".experimentlab-page tbody")).some(t=>t.textContent.includes("Multi-Path Mesh"))'));
   await nav('analytics');await select('Analytics topology','multipath_mesh');
+  assert.ok(await evaluate(`document.querySelector('.analytics-page').textContent.includes('Violated: 1')`));
   checks.push('Experiment failure selector has 14 actual ISLs; mesh request/provenance retained; analytics topology filter works');
   await click('Stop Simulation');await waitFor('document.querySelector(".runtime-status").textContent.includes("STOPPED")');
   await select('Network topology','diamond');await select('Active controller','baseline');await waitFor(`document.querySelector('select[aria-label="Active controller"]').value==="baseline"`);

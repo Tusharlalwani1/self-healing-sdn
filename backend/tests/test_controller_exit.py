@@ -141,13 +141,31 @@ class ControllerExitTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["pid"], process.pid)
 
     async def test_listener_loss_detected_without_process_exit_or_repeated_alert(self):
+        failure_reported = asyncio.Event()
+
+        async def observe_status(message):
+            if (message.get("event_type") == "CONTROLLER_STATUS" and
+                    message.get("status") == "FAILED" and
+                    message.get("controller_generation") == self.manager.generation):
+                failure_reported.set()
+
+        self.broadcast.side_effect = observe_status
         await self.start()
         self.manager.owns_listener.return_value = False
-        await asyncio.sleep(1.1)
+        # A 1.1s sleep races the watcher's 1s wait_for timeout: under a
+        # delayed event loop both timers can become ready before timeout
+        # cancellation callbacks finish. Observe the real transition instead.
+        # This timeout bounds a broken watcher; it is not a polling delay.
+        await asyncio.wait_for(failure_reported.wait(), timeout=5.0)
         self.assertEqual(self.manager.status, "FAILED")
+        self.assertIsNone(self.manager.process.returncode)
+        self.assertEqual(self.manager.failure_reason, "Managed Ryu listener on port 6653 is unavailable")
         await self.manager.reconcile_health()
         failed = [c.args[0] for c in self.broadcast.await_args_list if c.args[0].get("status") == "FAILED"]
         self.assertEqual(len(failed), 1)
+        states = [c.args[0]["status"] for c in self.broadcast.await_args_list
+                  if c.args[0].get("event_type") == "CONTROLLER_STATUS"]
+        self.assertEqual(states, ["STARTING", "READY", "FAILED"])
 
 
 class ListenerOwnershipTests(unittest.TestCase):

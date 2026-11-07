@@ -1,3 +1,6 @@
+import { ServiceIntentEditor } from '../components/ServiceIntentEditor';
+import { ServiceIntentCard } from '../components/ServiceIntentCard';
+import { useIntentConfigurationStore } from '../stores/intentConfigurationStore';
 import { ExecutionTimeline } from "../components/experiments/ExecutionTimeline";
 import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { PageHeader } from "../components/ui/Primitives";
@@ -73,6 +76,7 @@ export const ExperimentLabView: React.FC = () => {
     try {
       await runExperiment({
         controller,
+        service_intent:useIntentConfigurationStore.getState().selection('experiment'),
         topology_id: selectedTopologyId,
         packet_count: packetCount,
         traffic_interval: trafficInterval,
@@ -81,6 +85,7 @@ export const ExperimentLabView: React.FC = () => {
         fail_link_dst: dst,
       });
     } catch (e) {
+      useSDNStore.setState({error:e instanceof Error ? e.message : 'Unable to start experiment'});
       console.error(e);
     }
   };
@@ -105,6 +110,8 @@ export const ExperimentLabView: React.FC = () => {
 
       {/* Main Form & Active Execution Card */}
       <RecoveryVerificationCard />
+      <ServiceIntentCard/>
+      <ServiceIntentEditor workflow="experiment" disabled={experimentRunning}/>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Experiment Configuration Form */}
         <div className="lg:col-span-2 panel p-5 rounded-md border border-slate-800/80 space-y-4">
@@ -423,6 +430,7 @@ export const ExperimentLabView: React.FC = () => {
                   <td className="py-3 px-4 text-right space-x-2">
                     <details><summary>{exp.summary?.verification?.verification_status || 'Not recorded'}</summary>
                       <RecoveryVerificationCard verification={exp.summary?.verification || null}/>
+                      <ServiceIntentCard evaluation={exp.summary?.intent_evaluation || null} intent={exp.summary?.service_intent || null}/>
                     </details>
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">

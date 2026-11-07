@@ -1,4 +1,6 @@
 import asyncio
+import copy
+from backend.services.service_intent import resolve_intent
 import datetime
 import logging
 import time
@@ -63,6 +65,8 @@ class ExperimentRunner:
         run_id = kwargs.pop("run_id", None) or uuid.uuid4().hex
         if run_id in self._terminal:
             raise OperationError(409, "Experiment run ID has already been used")
+        # Freeze the request before the first await (including comparison children).
+        kwargs = copy.deepcopy(kwargs)
         self.is_running = True
         self.current_run_id = run_id
         self._cancel_flag = False
@@ -109,8 +113,10 @@ class ExperimentRunner:
         fail_dst: str = "s2",
         repetitions: int = 1,
         run_id: Optional[str] = None,
-        topology_id: Optional[str] = None
+        topology_id: Optional[str] = None,
+        service_intent=None
     ) -> Dict[str, Any]:
+        intent_snapshot = resolve_intent(service_intent)
         topology_id = topology_id or mininet_client.topology_id
         definition = topology_definition(topology_id)
         exp_id = f"exp_{uuid.uuid4().hex}_{controller_type}"
@@ -127,7 +133,8 @@ class ExperimentRunner:
                 "failure_delay": failure_delay_sec
             },
             "failure_link": f"{fail_src}-{fail_dst}",
-            "summary": {"topology_id": topology_id, "topology_label": definition["label"]}
+            "summary": {"topology_id": topology_id, "topology_label": definition["label"],
+                        "service_intent": intent_snapshot}
         }
 
         self.current_experiment = record
@@ -207,7 +214,8 @@ class ExperimentRunner:
             traffic_job_id = f"exp_traffic_{uuid.uuid4().hex}"
             check_context()
             record["summary"]["traffic_job_id"] = traffic_job_id
-            await self._step(mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id))
+            await self._step(mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id,
+                **({"service_intent": service_intent} if service_intent is not None else {})))
             traffic_started = time.monotonic()
 
             # 6. Wait for failure delay
@@ -334,6 +342,9 @@ class ExperimentRunner:
                         'EXPERIMENT_INTERRUPTED', 'Experiment ended before verification completed.')
                 except Exception as exc:
                     cleanup_errors.append('Verification finalization: ' + public_error(exc))
+            evaluation = verification_engine.intent_engine.latest
+            if evaluation and evaluation['verification_id'] == verification_id:
+                record['summary']['intent_evaluation'] = copy.deepcopy(evaluation)
             if traffic_job_id and not traffic_finalized:
                 try:
                     final = await mininet_client.stop_experiment_traffic(traffic_job_id, exp_id, runtime_id)
@@ -390,7 +401,8 @@ class ExperimentRunner:
         fail_src: str = "s1",
         fail_dst: str = "s2",
         run_id: Optional[str] = None,
-        topology_id: Optional[str] = None
+        topology_id: Optional[str] = None,
+        service_intent=None
     ) -> Dict[str, Any]:
         """Runs Baseline, Reactive, and Fast Failover under identical conditions."""
         run_id = run_id or uuid.uuid4().hex
@@ -413,7 +425,7 @@ class ExperimentRunner:
                 packet_count=packet_count,
                 failure_delay_sec=failure_delay_sec,
                 fail_src=fail_src,
-                fail_dst=fail_dst, run_id=uuid.uuid4().hex, topology_id=topology_id
+                fail_dst=fail_dst, run_id=uuid.uuid4().hex, topology_id=topology_id, service_intent=service_intent
             )
             results.append(res)
             if res["status"] != "COMPLETED":

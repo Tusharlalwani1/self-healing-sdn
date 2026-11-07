@@ -23,6 +23,7 @@ import {
 } from "../services/topology";
 import { useTopologySelectionStore } from "./topologySelectionStore";
 import { isVerification } from '../services/verification';
+import { isIntentEvaluation, type IntentEvaluation, type IntentSelection } from '../services/intent';
 
 export type NavigationTab =
   | "overview"
@@ -36,6 +37,9 @@ export type NavigationTab =
   | "settings";
 
 interface SDNState {
+  intentEvaluation: IntentEvaluation | null;
+  intentError: string | null;
+  fetchIntentEvaluation: () => Promise<void>;
   verification: RecoveryVerification | null;
   verificationError: string | null;
   controllerGeneration: string | null;
@@ -103,6 +107,7 @@ interface SDNState {
     dst?: string;
     interval?: number;
     count?: number;
+    service_intent?: IntentSelection;
   }) => Promise<void>;
   stopTraffic: () => Promise<void>;
   fetchTrafficStats: () => Promise<void>;
@@ -153,7 +158,7 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
       selectedNode: null,
       selectedLink: null,
       trafficStats: emptyTraffic(),
-      verification: null,
+      verification: null, intentEvaluation: null,
       controllerGeneration: null,
     };
   }
@@ -168,17 +173,51 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
 let topologyRequestId = 0;
 let controllerStatusVersion = 0;
 let controllerRequestId = 0;
+let intentVersion = 0;
+let intentRequestId = 0;
 let verificationVersion = 0;
 let verificationRequestId = 0;
 
-function ownsVerification(state: SDNState, value: RecoveryVerification) {
+function ownsVerification(state: SDNState, value: Pick<RecoveryVerification, 'runtime_id' | 'runtime_revision' | 'controller_mode' | 'controller_generation'>) {
   return state.simulationState === 'RUNNING' && state.controllerStatus === 'READY' && value.runtime_id === state.runtimeId &&
     value.runtime_revision === state.runtimeRevision &&
     value.controller_mode === state.activeController &&
     (!state.controllerGeneration || value.controller_generation === state.controllerGeneration);
 }
 
+function intentReplacedByTraffic(state: SDNState, stats: TrafficStats) {
+  const value = state.intentEvaluation;
+  return !!(stats.job_id && value?.job_id && (
+    (value.traffic_sequence != null && (stats.traffic_sequence || 0) > value.traffic_sequence) ||
+    (!value.experiment_id && value.job_id !== stats.job_id)));
+}
+
+function ownsIntent(state: SDNState, value: IntentEvaluation) {
+  if (!ownsVerification(state, value) || !state.controllerGeneration || value.controller_generation !== state.controllerGeneration) return false;
+  if (value.traffic_sequence != null && (state.trafficStats.traffic_sequence || 0) > value.traffic_sequence) return false;
+  if (value.job_id && !value.experiment_id && state.trafficStats.job_id && value.job_id !== state.trafficStats.job_id) return false;
+  if (value.experiment_id && state.experimentProgress?.experiment_id && value.experiment_id !== state.experimentProgress.experiment_id) return false;
+  if (state.verification && state.verification.failure_timestamp > value.failure_timestamp) return false;
+  const previous = state.intentEvaluation;
+  if (previous && previous.failure_timestamp > value.failure_timestamp) return false;
+  return !(previous?.evaluation_id === value.evaluation_id && previous.evaluation_status !== 'EVALUATING' && value.evaluation_status === 'EVALUATING');
+}
+
 export const useSDNStore = create<SDNState>((set, get) => ({
+  intentEvaluation: null,
+  intentError: null,
+  fetchIntentEvaluation: async () => {
+    const version = intentVersion, request = ++intentRequestId, runtime = get().runtimeId;
+    try {
+      const value = await api.getIntentEvaluation();
+      if (version !== intentVersion || request !== intentRequestId || runtime !== get().runtimeId) return;
+      if (value && !isIntentEvaluation(value)) throw new Error('Invalid service intent response');
+      if (value && !ownsIntent(get(), value)) return;
+      set({intentEvaluation:value, intentError:null});
+    } catch (e: any) {
+      if (version === intentVersion && request === intentRequestId && runtime === get().runtimeId) set({intentError:e.message});
+    }
+  },
   verification: null,
   verificationError: null,
   controllerGeneration: null,
@@ -274,8 +313,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   selectController: async (ctrl) => {
-    ++verificationVersion;
-    set({ verification: null, controllerGeneration: null });
+    ++verificationVersion; ++intentVersion;
+    set({ verification: null, intentEvaluation: null, controllerGeneration: null });
     set({ loading: true, error: null });
     try {
       await api.selectController(ctrl);
@@ -324,8 +363,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   stopSimulation: async () => {
-    ++verificationVersion;
-    set({ verification: null });
+    ++verificationVersion; ++intentVersion;
+    set({ verification: null, intentEvaluation: null });
     const runtime = get().runtimeId;
     set({ loading: true, error: null });
     try {
@@ -437,6 +476,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     try {
       const result = await api.startTraffic(params || {});
       if (get().runtimeId !== runtime || action !== trafficVersion) return;
+      ++intentVersion;
+      set({intentEvaluation:null});
       if (get().trafficStats.job_id === result.job_id) return;
       set({
         trafficStats: {
@@ -501,8 +542,13 @@ export const useSDNStore = create<SDNState>((set, get) => ({
           get().simulationState === "RUNNING",
           true,
         )
-      )
+      ) {
+        if (intentReplacedByTraffic(get(), stats)) {
+          ++intentVersion;
+          set({intentEvaluation:null});
+        }
         set({ trafficStats: stats });
+      }
     } catch (e: any) {
       console.error("Failed to fetch traffic stats", e);
     }
@@ -602,6 +648,13 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   handleWebSocketMessage: (msg: any) => {
     const { event_type } = msg;
     if (!event_type) return;
+    if (event_type === 'INTENT_EVALUATION') {
+      const value = msg.evaluation;
+      if (!isIntentEvaluation(value) || !ownsIntent(get(), value)) return;
+      ++intentVersion;
+      set({intentEvaluation:value, intentError:null});
+      return;
+    }
     if (event_type === 'RECOVERY_VERIFICATION') {
       const value = msg.verification as RecoveryVerification | undefined;
       if (!isVerification(value) || !ownsVerification(get(), value) ||
@@ -610,13 +663,13 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (previous && previous.verification_id === value.verification_id &&
           previous.verification_status !== 'VERIFYING' && value.verification_status === 'VERIFYING') return;
       if (previous && previous.failure_timestamp > value.failure_timestamp) return;
-      ++verificationVersion;
+      ++verificationVersion; ++intentVersion;
       set({ verification: value, verificationError: null });
       return;
     }
     if (event_type === 'CONTROLLER_STATUS') {
-      ++verificationVersion;
-      set({ verification: null, controllerGeneration: msg.controller_generation ?? null });
+      ++verificationVersion; ++intentVersion;
+      set({ verification: null, intentEvaluation: null, controllerGeneration: msg.controller_generation ?? null });
     }
     if (
       ["INITIAL_STATE", "SIMULATION_STATUS", "TOPOLOGY_UPDATE"].includes(
@@ -630,14 +683,14 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (patch === null) return;
       set(patch);
       if (event_type === 'SIMULATION_STATUS' && msg.state !== 'RUNNING') {
-        ++verificationVersion;
-        set({ verification: null });
+        ++verificationVersion; ++intentVersion;
+        set({ verification: null, intentEvaluation: null });
       }
     }
 
     if (event_type === "INITIAL_STATE") {
-      ++verificationVersion;
-      set({ controllerGeneration: msg.controller_generation ?? null, verification: null });
+      ++verificationVersion; ++intentVersion;
+      set({ controllerGeneration: msg.controller_generation ?? null, verification: null, intentEvaluation: null });
       if (
         "experiment_run_id" in msg &&
         (!get().experimentRunning ||
@@ -698,6 +751,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       );
       if (isVerification(msg.verification) && ownsVerification(get(), msg.verification))
         set({ verification: msg.verification });
+      if (isIntentEvaluation(msg.intent_evaluation) && ownsIntent(get(), msg.intent_evaluation))
+        set({intentEvaluation:msg.intent_evaluation, intentError:null});
     } else if (event_type === "CONTROLLER_STATUS") {
       ++controllerStatusVersion;
       set((s) => ({
@@ -792,6 +847,10 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         )
       ) {
         if (event_type === "TRAFFIC_STARTED") ++trafficVersion;
+        if (intentReplacedByTraffic(get(), stats)) {
+          ++intentVersion;
+          set({intentEvaluation:null});
+        }
         set({ trafficStats: stats });
       }
     } else if (event_type === "EXPERIMENT_PROGRESS") {

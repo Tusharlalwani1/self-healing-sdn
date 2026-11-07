@@ -1,0 +1,38 @@
+ M backend/api/experiments.py
+ M backend/api/traffic.py
+ M backend/database/db.py
+ M backend/main.py
+ M backend/models/schemas.py
+ M backend/models/verification.py
+ M backend/services/experiment_runner.py
+ M backend/services/mininet_client.py
+ M backend/services/recovery_verification.py
+ M backend/services/report_generator.py
+ M backend/services/traffic_service.py
+ M data/sdn_dashboard.db
+ M frontend/src/App.tsx
+ M frontend/src/components/RecoveryVerificationCard.tsx
+ M frontend/src/index.css
+ M frontend/src/pages/AnalyticsView.tsx
+ M frontend/src/pages/ExperimentLabView.tsx
+ M frontend/src/pages/FailureSimulatorView.tsx
+ M frontend/src/pages/OverviewView.tsx
+ M frontend/src/pages/TrafficView.tsx
+ M frontend/src/services/api.ts
+ M frontend/src/stores/sdnStore.ts
+ M frontend/tests/metric-truthfulness.test.tsx
+ M frontend/tests/multipath-mesh.browser.mjs
+ M frontend/tests/recovery-verification.test.tsx
+ M frontend/tests/traffic-configuration.browser.mjs
+?? backend/api/intent_route.py
+?? backend/api/intents.py
+?? backend/models/intent.py
+?? backend/services/service_intent.py
+?? backend/tests/test_service_intent.py
+?? frontend/src/components/ServiceIntentCard.tsx
+?? frontend/src/components/ServiceIntentEditor.tsx
+?? frontend/src/services/intent.ts
+?? frontend/src/stores/intentConfigurationStore.ts
+?? frontend/tests/intent.test.tsx
+?? frontend/tests/intentFixture.ts
+?? reports/intent-aware-healing/

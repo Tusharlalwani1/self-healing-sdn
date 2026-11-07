@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class RecoveryVerification(BaseModel):
+    service_intent: Optional[dict] = None
+    traffic_sequence: Optional[int] = None
     verification_id: str
     incident_id: Optional[str] = None
     runtime_id: str

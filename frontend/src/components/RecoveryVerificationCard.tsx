@@ -25,7 +25,7 @@ export function RecoveryVerificationCard({ verification }: { verification?: Reco
         <Metric label="Reachability" value={available(value?.reachability_restored, 'Restored', 'Not restored')}/>
         <Metric label="Post-failure Tx / Rx" value={`${formatMetric(value?.post_recovery_tx)} / ${formatMetric(value?.post_recovery_rx)}`}/>
         <Metric label="Post-failure packet loss" value={formatVerificationMetric(value?.post_recovery_loss_percent, '%')}/>
-        <Metric label="Successful-reply average RTT" value={formatVerificationMetric(value?.post_recovery_avg_rtt_ms, ' ms')}/>
+        <Metric label="Post-Recovery Avg RTT" value={formatVerificationMetric(value?.post_recovery_avg_rtt_ms, ' ms')}/>
         <Metric label="Stability" value={available(value?.stability_passed, 'Passed', 'Failed')}/>
         <Metric label="Path verification" value={value?.path_verification_status || 'UNAVAILABLE'}/>
         <Metric label="Verification duration" value={formatVerificationMetric(value?.verification_duration_sec, ' s')}/>

@@ -1,0 +1,140 @@
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:24:55,232 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:24:55,246 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:24:55,960 [WARNING] (worker) Executing <Task pending name='Task-1' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.142 seconds
+2026-11-07 23:24:56,998 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:24:57,126 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:24:57,692 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:24:57,694 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:24:58,349 [WARNING] (worker) Executing <Task pending name='Task-9' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.130 seconds
+2026-11-07 23:24:59,438 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:24:59,546 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:00,102 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:00,104 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:01,840 [WARNING] (worker) Executing <Task pending name='Task-19' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.118 seconds
+2026-11-07 23:25:01,841 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:01,938 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:02,504 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:02,552 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:02,660 [WARNING] (worker) Executing <Task pending name='Task-25' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.156 seconds
+2026-11-07 23:25:03,457 [WARNING] (worker) Executing <Task pending name='Task-25' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.286 seconds
+2026-11-07 23:25:04,504 [WARNING] (worker) Executing <Task pending name='Task-28' coro=<Event.wait() running at /usr/lib/python3.10/asyncio/locks.py:214> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[_release_waiter(<Future pendi...events.py:429>)() at /usr/lib/python3.10/asyncio/tasks.py:387] created at /usr/lib/python3.10/asyncio/tasks.py:636> took 1.023 seconds
+2026-11-07 23:25:04,805 [WARNING] (worker) Executing <Task pending name='Task-29' coro=<Process.wait() running at /mnt/e/Projects/self-healing-sdn/backend/tests/test_controller_exit.py:20> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.301 seconds
+2026-11-07 23:25:04,901 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:05,187 [WARNING] (worker) Executing <Task pending name='Task-25' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:95> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.157 seconds
+2026-11-07 23:25:05,365 [WARNING] (worker) Executing <Task pending name='Task-25' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<_GatheringFuture pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/tasks.py:665> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.128 seconds
+2026-11-07 23:25:05,428 [INFO] (worker) Stopping controller reactive...
+2026-11-07 23:25:05,551 [WARNING] (worker) Executing <Task pending name='Task-25' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.123 seconds
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:06,156 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:06,159 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:07,795 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:07,844 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:08,407 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:08,409 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:09,991 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:10,062 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:10,634 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:10,636 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:12,241 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:12,298 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:12,870 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:12,878 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:14,479 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:14,542 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:15,114 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:15,117 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:15,714 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:15,771 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:16,345 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:16,347 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:18,368 [WARNING] (worker) Executing <Task pending name='Task-75' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.388 seconds
+2026-11-07 23:25:18,369 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:18,501 [WARNING] (worker) Executing <Task pending name='Task-75' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.132 seconds
+2026-11-07 23:25:18,816 [WARNING] (worker) Executing <Task pending name='Task-73' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<_GatheringFuture pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/tasks.py:665> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.159 seconds
+2026-11-07 23:25:18,938 [WARNING] (worker) Executing <Task pending name='Task-75' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[gather.<locals>._done_callback() at /usr/lib/python3.10/asyncio/tasks.py:720] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.122 seconds
+2026-11-07 23:25:19,260 [WARNING] (worker) Executing <Task pending name='Task-75' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:328> wait_for=<_GatheringFuture pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/tasks.py:665> cb=[gather.<locals>._done_callback() at /usr/lib/python3.10/asyncio/tasks.py:720] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.321 seconds
+2026-11-07 23:25:19,261 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:19,922 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:19,950 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:21,594 [WARNING] (worker) Executing <Task pending name='Task-81' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 1.671 seconds
+2026-11-07 23:25:22,630 [WARNING] (worker) Executing <Task pending name='Task-81' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.791 seconds
+2026-11-07 23:25:22,984 [WARNING] (worker) Executing <Task pending name='Task-83' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.354 seconds
+2026-11-07 23:25:23,131 [WARNING] (worker) Executing <Task pending name='Task-84' coro=<Event.wait() running at /usr/lib/python3.10/asyncio/locks.py:214> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[_release_waiter(<Future pendi...events.py:429>)() at /usr/lib/python3.10/asyncio/tasks.py:387] created at /usr/lib/python3.10/asyncio/tasks.py:636> took 0.146 seconds
+2026-11-07 23:25:23,998 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:24,136 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:24,800 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:24,802 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:26,898 [WARNING] (worker) Executing <Task pending name='Task-91' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.378 seconds
+2026-11-07 23:25:26,899 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:27,074 [INFO] (worker) Stopping controller reactive...
+2026-11-07 23:25:27,376 [WARNING] (worker) Executing <Task pending name='Task-89' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.302 seconds
+2026-11-07 23:25:27,479 [WARNING] (worker) Executing <Task pending name='Task-89' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:95> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.102 seconds
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:28,104 [WARNING] (worker) Executing <Task pending name='Task-97' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.207 seconds
+2026-11-07 23:25:28,597 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:28,604 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:30,425 [WARNING] (worker) Executing <Task pending name='Task-99' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.161 seconds
+2026-11-07 23:25:30,426 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:30,591 [WARNING] (worker) Executing <Task pending name='Task-99' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.166 seconds
+2026-11-07 23:25:30,674 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:30,988 [WARNING] (worker) Executing <Task pending name='Task-105' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.196 seconds
+2026-11-07 23:25:31,346 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:31,350 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:32,018 [WARNING] (worker) Executing <Task pending name='Task-105' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.135 seconds
+2026-11-07 23:25:33,101 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:33,150 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:33,709 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:33,716 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:33,827 [WARNING] (worker) Executing <Task pending name='Task-113' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.118 seconds
+2026-11-07 23:25:35,498 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:35,610 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:36,247 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:36,282 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:36,792 [WARNING] (worker) Executing <Task pending name='Task-121' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.545 seconds
+2026-11-07 23:25:37,474 [WARNING] (worker) Executing <Task pending name='Task-121' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.179 seconds
+2026-11-07 23:25:38,530 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:38,607 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:39,222 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:39,225 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:41,004 [WARNING] (worker) Executing <Task pending name='Task-131' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.184 seconds
+2026-11-07 23:25:41,005 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:41,256 [WARNING] (worker) Executing <Task pending name='Task-131' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.251 seconds
+2026-11-07 23:25:41,668 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:42,289 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:42,299 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:42,938 [WARNING] (worker) Executing <Task pending name='Task-137' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.106 seconds
+2026-11-07 23:25:44,003 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:44,072 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:44,657 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:44,660 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:46,067 [WARNING] (worker) Executing <Task pending name='Task-147' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.237 seconds
+2026-11-07 23:25:46,069 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:46,171 [WARNING] (worker) Executing <Task pending name='Task-147' coro=<ControllerManager._watch_controller() running at /mnt/e/Projects/self-healing-sdn/backend/services/controller_manager.py:316> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.103 seconds
+2026-11-07 23:25:46,217 [INFO] (worker) Stopping controller reactive...
+ok
+test_listener_loss_detected_without_process_exit_or_repeated_alert (backend.tests.test_controller_exit.ControllerExitTests) ... 2026-11-07 23:25:46,796 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-07 23:25:46,799 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-07 23:25:48,430 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-07 23:25:48,514 [INFO] (worker) Stopping controller reactive...
+ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 56.094s
+
+OK

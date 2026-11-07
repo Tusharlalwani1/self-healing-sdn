@@ -1,0 +1,136 @@
+{
+  "branch": "tushar-fixes",
+  "head": "c46d95d feat: add recovery verification engine",
+  "commitReadinessGate": "NOT_FULLY_GREEN",
+  "backend": {
+    "total": 233,
+    "passed": 232,
+    "failed": 1,
+    "errors": 0,
+    "failingTest": "test_controller_exit.ControllerExitTests.test_listener_loss_detected_without_process_exit_or_repeated_alert",
+    "earlierConcurrentRun": {
+      "total": 233,
+      "failures": 2
+    },
+    "isolatedTimingRecheck": {
+      "total": 2,
+      "passed": 2
+    },
+    "serialRecheck": {
+      "total": 233,
+      "failures": 1
+    }
+  },
+  "phase4BackendModule": {
+    "passed": 30
+  },
+  "frontend": {
+    "passed": 117,
+    "failed": 0,
+    "phase4Tests": 19
+  },
+  "typescript": {
+    "application": "PASS",
+    "tests": "PASS"
+  },
+  "productionBuild": "PASS",
+  "browser": {
+    "meshChecks": 6,
+    "trafficChecks": 8,
+    "consoleErrors": 0,
+    "isolatedFixtures": true,
+    "liveMininetVerified": false
+  },
+  "manualMininetValidation": {
+    "source": "User-reported real Mininet observations; not rerun by assistant during cleanup",
+    "scenarios": [
+      {
+        "controller": "reactive",
+        "topology": "multipath_mesh",
+        "intent": "Standard",
+        "failure": "s2-s5",
+        "recovery": "VERIFIED",
+        "tx": 38,
+        "rx": 38,
+        "lossPercent": 0,
+        "avgRttMs": 32.03684210526316,
+        "intentResult": "SATISFIED",
+        "reason": "INTENT_SATISFIED"
+      },
+      {
+        "controller": "reactive",
+        "topology": "multipath_mesh",
+        "intent": "Interactive / Low Latency",
+        "failure": "s2-s5",
+        "recovery": "VERIFIED",
+        "tx": 36,
+        "rx": 36,
+        "lossPercent": 0,
+        "avgRttMs": 36.27222222222221,
+        "intentResult": "VIOLATED",
+        "reason": "RTT_THRESHOLD_EXCEEDED"
+      },
+      {
+        "controller": "baseline",
+        "topology": "multipath_mesh",
+        "intent": "Standard",
+        "failure": "s2-s5",
+        "recovery": "FAILED",
+        "tx": 35,
+        "rx": 0,
+        "lossPercent": 100,
+        "avgRttMs": null,
+        "intentResult": "VIOLATED",
+        "reason": "MULTIPLE_REQUIREMENTS_FAILED"
+      }
+    ]
+  },
+  "gitDiffCheck": "PASS (exit 0)",
+  "runtimeDatabase": {
+    "staged": false,
+    "intentionallyModifiedDuringCleanup": false,
+    "sha256UnchangedDuringCleanup": "971475182AB681994B75BE69FFACD57F8B22756F01ECD33EC0A11A3D6C25EDDA"
+  },
+  "stagedFiles": [],
+  "noCommitOrPush": true,
+  "status": [
+    " M backend/api/experiments.py",
+    " M backend/api/traffic.py",
+    " M backend/database/db.py",
+    " M backend/main.py",
+    " M backend/models/schemas.py",
+    " M backend/models/verification.py",
+    " M backend/services/experiment_runner.py",
+    " M backend/services/mininet_client.py",
+    " M backend/services/recovery_verification.py",
+    " M backend/services/report_generator.py",
+    " M backend/services/traffic_service.py",
+    " M data/sdn_dashboard.db",
+    " M frontend/src/App.tsx",
+    " M frontend/src/components/RecoveryVerificationCard.tsx",
+    " M frontend/src/index.css",
+    " M frontend/src/pages/AnalyticsView.tsx",
+    " M frontend/src/pages/ExperimentLabView.tsx",
+    " M frontend/src/pages/FailureSimulatorView.tsx",
+    " M frontend/src/pages/OverviewView.tsx",
+    " M frontend/src/pages/TrafficView.tsx",
+    " M frontend/src/services/api.ts",
+    " M frontend/src/stores/sdnStore.ts",
+    " M frontend/tests/metric-truthfulness.test.tsx",
+    " M frontend/tests/multipath-mesh.browser.mjs",
+    " M frontend/tests/recovery-verification.test.tsx",
+    " M frontend/tests/traffic-configuration.browser.mjs",
+    "?? backend/api/intent_route.py",
+    "?? backend/api/intents.py",
+    "?? backend/models/intent.py",
+    "?? backend/services/service_intent.py",
+    "?? backend/tests/test_service_intent.py",
+    "?? frontend/src/components/ServiceIntentCard.tsx",
+    "?? frontend/src/components/ServiceIntentEditor.tsx",
+    "?? frontend/src/services/intent.ts",
+    "?? frontend/src/stores/intentConfigurationStore.ts",
+    "?? frontend/tests/intent.test.tsx",
+    "?? frontend/tests/intentFixture.ts",
+    "?? reports/intent-aware-healing/"
+  ]
+}

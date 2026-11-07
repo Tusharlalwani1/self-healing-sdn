@@ -50,8 +50,45 @@ def init_db():
         experiment_id TEXT, failure_timestamp REAL NOT NULL, record_json TEXT NOT NULL
     )""")
     cursor.execute("CREATE INDEX IF NOT EXISTS verification_history_time ON recovery_verifications(failure_timestamp DESC)")
+    cursor.execute("""CREATE TABLE IF NOT EXISTS intent_evaluations (
+        evaluation_id TEXT PRIMARY KEY, verification_id TEXT NOT NULL,
+        runtime_id TEXT NOT NULL, created_at REAL NOT NULL, record_json TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS intent_history_time ON intent_evaluations(created_at DESC)")
     conn.commit()
     conn.close()
+
+
+def save_intent_evaluation(record):
+    conn = get_db_connection()
+    try:
+        conn.execute('INSERT OR REPLACE INTO intent_evaluations VALUES (?, ?, ?, ?, ?)',
+            (record['evaluation_id'], record['verification_id'], record['runtime_id'],
+             record['created_at'], json.dumps(record, allow_nan=False)))
+        conn.execute('INSERT INTO event_logs (timestamp, level, source, message, details_json) VALUES (?, ?, ?, ?, ?)',
+            (time.time(), 'INFO', 'SYSTEM', 'Service intent ' + record['evaluation_status'] + ': ' + record['reason'],
+             json.dumps(record, allow_nan=False)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_intent_evaluations(limit=50):
+    conn = get_db_connection()
+    try:
+        return [json.loads(row['record_json']) for row in conn.execute(
+            'SELECT record_json FROM intent_evaluations ORDER BY created_at DESC LIMIT ?', (limit,))]
+    finally:
+        conn.close()
+
+
+def get_intent_evaluation(evaluation_id):
+    conn = get_db_connection()
+    try:
+        row = conn.execute('SELECT record_json FROM intent_evaluations WHERE evaluation_id=?', (evaluation_id,)).fetchone()
+        return json.loads(row['record_json']) if row else None
+    finally:
+        conn.close()
 
 
 def save_verification(record):

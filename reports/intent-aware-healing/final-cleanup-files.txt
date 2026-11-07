@@ -1,0 +1,30 @@
+Documentation/source/test files changed by final cleanup:
+reports/intent-aware-healing/PHASE-4-INTENT-AWARE-HEALING.md
+frontend/src/pages/TrafficView.tsx
+frontend/src/components/RecoveryVerificationCard.tsx
+frontend/src/components/ServiceIntentCard.tsx
+frontend/tests/metric-truthfulness.test.tsx
+frontend/tests/recovery-verification.test.tsx
+frontend/tests/intent.test.tsx
+
+Generated validation evidence written/refreshed (empty output files may have unchanged contents):
+reports/intent-aware-healing/backend-test-output.txt
+reports/intent-aware-healing/backend-initial-concurrent-output.txt
+reports/intent-aware-healing/backend-timing-recheck-output.txt
+reports/intent-aware-healing/backend-serial-recheck-output.txt
+reports/intent-aware-healing/frontend-test-output.txt
+reports/intent-aware-healing/typescript-test-output.txt
+reports/intent-aware-healing/production-build-output.txt
+reports/intent-aware-healing/diff-check-warnings.txt
+reports/intent-aware-healing/git-status-short.txt
+reports/intent-aware-healing/validation-summary.json
+reports/intent-aware-healing/final-cleanup-files.txt
+reports/intent-aware-healing/mesh-browser/browser-evidence.json
+reports/intent-aware-healing/mesh-browser/intent-mobile-fixture.png
+reports/intent-aware-healing/mesh-browser/intent-verified-but-violated-fixture.png
+reports/intent-aware-healing/mesh-browser/mesh-failed-link-fixture.png
+reports/intent-aware-healing/mesh-browser/mesh-topology-fixture.png
+reports/intent-aware-healing/mesh-browser/recovery-verification-fixture.png
+reports/intent-aware-healing/traffic-browser/browser-evidence.json
+
+No backend source or runtime DB was edited by this cleanup. Prior Phase 4 work remains uncommitted.

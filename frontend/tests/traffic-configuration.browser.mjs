@@ -1,3 +1,4 @@
+import { intentProfilesFixture } from './intentFixture.ts';
 // Real React/browser regression with an isolated fixture server. Never sends an
 // SDN request to the running backend, and never edits production data.
 import { createServer } from 'node:http';
@@ -24,6 +25,8 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/api/topology')return json(topology);
     if(url.pathname==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(url.pathname==='/api/events/logs')return json([]);
+    if(url.pathname==='/api/intents/profiles')return json(intentProfilesFixture);
+    if(url.pathname==='/api/intents/evaluation/current')return json(null);
     if(url.pathname==='/api/verification/current')return json(null);
     if(url.pathname==='/api/traffic/stats'){statsReads++;return json(stats);}
     if(url.pathname==='/api/traffic/start'&&req.method==='POST'){
@@ -54,8 +57,8 @@ try {
   const cdp=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;const timer=setTimeout(()=>reject(new Error(`CDP timeout ${method}`)),15000);pending.set(n,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});socket.send(JSON.stringify({id:n,method,params}));});
   const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
   const waitFor=async expression=>{for(let i=0;i<60;i++){if(await evaluate(expression))return;await delay(100);}throw new Error(`UI condition timed out: ${expression}`);};
-  const form=()=>evaluate(`Array.from(document.querySelectorAll('.traffic-page select')).map(e=>e.value)`);
-  const setForm=async values=>{for(let i=0;i<values.length;i++)await evaluate(`(()=>{const e=document.querySelectorAll('.traffic-page select')[${i}];e.value=${JSON.stringify(String(values[i]))};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);};
+  const form=()=>evaluate(`Array.from(document.querySelectorAll('.traffic-page select[id^="trafficview-field-"]')).map(e=>e.value)`);
+  const setForm=async values=>{for(let i=0;i<values.length;i++)await evaluate(`(()=>{const e=document.querySelectorAll('.traffic-page select[id^="trafficview-field-"]')[${i}];e.value=${JSON.stringify(String(values[i]))};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);};
   const emit=async(event_type,sample)=>{stats=sample;await evaluate(`window.__emitTrafficFixture(${JSON.stringify({event_type,stats:sample})})`);await delay(100);};
   const navigate=async tab=>{const path=tab==='overview'?'/dashboard':'/dashboard/'+tab;await evaluate(`document.querySelector('nav[aria-label="Control center pages"] a[href="${path}"]').click()`);await waitFor(`location.pathname===${JSON.stringify(path)}`);};
   await cdp('Page.enable');await cdp('Runtime.enable');
@@ -72,7 +75,7 @@ try {
     const before=requests.length;
     await evaluate(`Array.from(document.querySelectorAll('.traffic-page button')).find(b=>b.textContent.includes('Start Traffic Stream')).click()`);
     await waitFor(`document.querySelector('.traffic-page').textContent.includes('Stop Traffic Generator')`);
-    assert.equal(requests.length,before+1);assert.deepEqual(requests.at(-1),config);
+    assert.equal(requests.length,before+1);assert.deepEqual(requests.at(-1),{...config,service_intent:{profile_id:'standard'}});
     assert.deepEqual(await form(),expected,'start acknowledgement preserves controls');
     await emit('TRAFFIC_STARTED',stats);assert.deepEqual(await form(),expected,'WebSocket start preserves controls');
     const tick={...stats,active:true,transmitted:97,received:97,loss_percent:0,avg_rtt:21.9,history:[{seq:97,rtt:21.9,success:true,t:1}]};
