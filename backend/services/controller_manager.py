@@ -102,6 +102,7 @@ class ControllerManager:
                     "event_type": "CONTROLLER_STATUS",
                     "controller": controller_type,
                     "status": "STARTING",
+                    "controller_generation": self.generation,
                     "timestamp": time.time()
                 })
 
@@ -185,6 +186,7 @@ class ControllerManager:
                 "event_type": "CONTROLLER_STATUS",
                 "controller": controller_type,
                 "status": "READY",
+                "controller_generation": self.generation,
                 "timestamp": time.time()
             })
             # Finish the startup broadcast before the watcher can broadcast a
@@ -270,7 +272,7 @@ class ControllerManager:
             return False
 
     def health_details(self):
-        return {"pid": getattr(self.process, "pid", None),
+        return {"pid": getattr(self.process, "pid", None), "controller_generation": self.generation,
                 "exit_code": self.exit_code, "failure_reason": self.failure_reason}
 
     async def _mark_failed(self, process, reason, exit_code=None):

@@ -1,0 +1,29 @@
+ M backend/api/links.py
+ M backend/database/db.py
+ M backend/main.py
+ M backend/services/controller_manager.py
+ M backend/services/experiment_runner.py
+ M backend/services/mininet_client.py
+ M backend/services/mininet_worker.py
+ M backend/services/ping_accounting.py
+ M backend/services/report_generator.py
+ M frontend/src/App.tsx
+ M frontend/src/pages/AnalyticsView.tsx
+ M frontend/src/pages/ExperimentLabView.tsx
+ M frontend/src/pages/FailureSimulatorView.tsx
+ M frontend/src/pages/OverviewView.tsx
+ M frontend/src/services/api.ts
+ M frontend/src/stores/sdnStore.ts
+ M frontend/src/types/index.ts
+ M frontend/tests/multipath-mesh.browser.mjs
+ M frontend/tests/traffic-configuration.browser.mjs
+?? backend/api/verification.py
+?? backend/models/verification.py
+?? backend/services/recovery_verification.py
+?? backend/services/verification_config.py
+?? backend/services/verification_window.py
+?? backend/tests/test_recovery_verification.py
+?? frontend/src/components/RecoveryVerificationCard.tsx
+?? frontend/src/services/verification.ts
+?? frontend/tests/recovery-verification.test.tsx
+?? reports/recovery-verification/

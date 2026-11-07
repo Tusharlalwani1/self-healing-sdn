@@ -101,6 +101,40 @@ export interface TrafficStats {
   }[];
 }
 
+export interface RecoveryVerification {
+  verification_id: string;
+  incident_id: string | null;
+  runtime_id: string;
+  runtime_revision: number;
+  topology_id: string;
+  controller_mode: string | null;
+  controller_generation: string | null;
+  experiment_id: string | null;
+  job_id: string | null;
+  source_host: string | null;
+  destination_host: string | null;
+  failed_link: string[];
+  failure_timestamp: number;
+  verification_status: 'NOT_STARTED' | 'VERIFYING' | 'VERIFIED' | 'DEGRADED' | 'FAILED';
+  verification_started_at: number | null;
+  verification_completed_at: number | null;
+  verification_duration_sec: number | null;
+  post_recovery_tx: number | null;
+  post_recovery_rx: number | null;
+  post_recovery_loss_percent: number | null;
+  post_recovery_avg_rtt_ms: number | null;
+  post_recovery_min_rtt_ms: number | null;
+  post_recovery_max_rtt_ms: number | null;
+  reachability_restored: boolean | null;
+  stability_passed: boolean | null;
+  path_verification_status: 'UNAVAILABLE';
+  path_verification_reason: string;
+  reason_code: string;
+  reason: string;
+  evidence_scope: string;
+  persistence_error?: string | null;
+}
+
 export interface ExperimentRecord {
   run_id?: string;
   id: string;

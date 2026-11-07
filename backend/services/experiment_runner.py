@@ -12,6 +12,7 @@ from backend.services.operation_error import OperationError, public_error
 from backend.services.metrics import PERFORMANCE_FIELDS, TIMING_SCOPE
 from backend.services.topology_catalog import topology_definition
 from backend.websocket.manager import ws_manager
+from backend.services.recovery_verification import verification_engine
 
 logger = logging.getLogger("sdn.experiment")
 
@@ -134,6 +135,7 @@ class ExperimentRunner:
         runtime_id = None
         link_dirty = False
         traffic_finalized = False
+        verification_id = None
         failure = None
         started_monotonic = time.monotonic()
         try:
@@ -218,8 +220,13 @@ class ExperimentRunner:
             record["failure_timestamp"] = t_fail
             # Retain intent even if a worker acknowledgement/topology broadcast fails.
             link_dirty = True
+            failure_context = {**mininet_client.runtime_context(), **mininet_client.controller_context()}
             await self._step(mininet_client.set_link_status(fail_src, fail_dst, "down", experiment_id=exp_id,
                                                           expected_runtime=runtime_id))
+            verification = await verification_engine.begin(mininet_client, traffic_job_id,
+                [fail_src, fail_dst], t_fail, incident_id=exp_id, failure_context=failure_context)
+            verification_id = verification['verification_id']
+            record['summary']['verification_id'] = verification_id
             save_event_log("WARNING", "EXPERIMENT", f"Injecting failure: disconnecting {fail_src} <-> {fail_dst}")
             await self._broadcast(run_id, {
                 "event_type": "EXPERIMENT_PROGRESS",
@@ -274,6 +281,8 @@ class ExperimentRunner:
                     not isinstance(final_stats.get("loss_percent"), (int, float))):
                 raise OperationError(502, "Experiment final packet accounting was incomplete")
 
+            record['summary']['verification'] = await self._step(verification_engine.wait(verification_id))
+
             # 9. Extract performance metrics
             record["end_time"] = datetime.datetime.now().isoformat()
             record["status"] = "COMPLETED"
@@ -317,6 +326,14 @@ class ExperimentRunner:
             record["summary"]["error"] = public_error(exc)
         finally:
             cleanup_errors = []
+            if verification_id:
+                # Finish observation before restoring the injected link: manual
+                # restoration must never manufacture an experiment recovery.
+                try:
+                    record['summary']['verification'] = await verification_engine.finish(verification_id,
+                        'EXPERIMENT_INTERRUPTED', 'Experiment ended before verification completed.')
+                except Exception as exc:
+                    cleanup_errors.append('Verification finalization: ' + public_error(exc))
             if traffic_job_id and not traffic_finalized:
                 try:
                     final = await mininet_client.stop_experiment_traffic(traffic_job_id, exp_id, runtime_id)

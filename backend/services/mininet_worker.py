@@ -21,10 +21,12 @@ from typing import Dict, Any, Optional
 # Direct script execution uses system Python; package imports support tests.
 if __package__:
     from .ping_accounting import PingAccounting
+    from .verification_window import VerificationWindow
     from .operation_error import OperationError, public_error, safe_message
     from .topology_catalog import TOPOLOGIES, topology_definition, populate_network
 else:
     from ping_accounting import PingAccounting
+    from verification_window import VerificationWindow
     from operation_error import OperationError, public_error, safe_message
     from topology_catalog import TOPOLOGIES, topology_definition, populate_network
 
@@ -437,6 +439,29 @@ class MininetWorker:
             res["history"] = list(job["history"])
             return res
 
+    def verification_evidence(self, req):
+        with self.traffic_lock:
+            if req.get('runtime_id') != self.runtime_id:
+                raise OperationError(409, 'Verification belongs to a different runtime')
+            job = self.traffic_jobs.get(req['job_id'])
+            if not job:
+                raise OperationError(404, 'Verification traffic job not found')
+            if any(job.get(k) != req.get(k) for k in ('runtime_id', 'controller_generation', 'experiment_id')):
+                raise OperationError(409, 'Verification traffic ownership mismatch')
+            windows = job['_accounting'].verification_windows
+            if req['command'] == 'begin_verification':
+                if not job.get('active'):
+                    raise OperationError(409, 'Verification requires active traffic')
+                # Bound retained taps to the current incident on this job.
+                windows.clear()
+                windows[req['verification_id']] = VerificationWindow(req['config'])
+            window = windows.get(req['verification_id'])
+            if window is None:
+                raise OperationError(404, 'Verification window not found')
+            return {'status': 'ok', 'verification_id': req['verification_id'], 'job_id': req['job_id'],
+                    **{k: job.get(k) for k in ('runtime_id', 'controller_generation', 'experiment_id')},
+                    'evidence': window.snapshot(time.monotonic() - job['_started_monotonic'])}
+
     def get_switch_info(self, dpid: int) -> Dict[str, Any]:
         if not self.net:
             raise OperationError(409, "Network is not running")
@@ -501,6 +526,8 @@ class MininetWorker:
                     resp = self.stop_traffic(req["job_id"])
                 elif cmd == "get_traffic_stats":
                     resp = self.get_traffic_stats(req["job_id"])
+                elif cmd in ('begin_verification', 'get_verification'):
+                    resp = self.verification_evidence(req)
                 elif cmd == "get_switch_info":
                     resp = self.get_switch_info(int(req["dpid"]))
                 elif cmd == "ping":

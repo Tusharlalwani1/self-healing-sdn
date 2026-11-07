@@ -44,11 +44,13 @@ const Dashboard: React.FC = () => {
     fetchControllers();
     fetchTopology();
     fetchEvents();
+    useSDNStore.getState().fetchVerification();
 
     // Periodic telemetry polling fallback
     const interval = setInterval(() => {
       fetchControllers();
       fetchTopology();
+      useSDNStore.getState().fetchVerification();
       if (simulationState === "RUNNING") {
         fetchTrafficStats();
       }

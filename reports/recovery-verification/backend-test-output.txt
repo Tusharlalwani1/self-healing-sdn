@@ -1,0 +1,231 @@
+.............2026-11-06 21:23:07,518 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:07,520 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:08,048 [ERROR] (worker) Failed to start controller: Ryu controller exited immediately with code 3
+2026-11-06 21:23:08,048 [ERROR] (worker) Controller switch to reactive failed: Ryu controller exited immediately with code 3
+2026-11-06 21:23:08,050 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:08,567 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:08,569 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:09,122 [ERROR] (worker) Managed Ryu exited unexpectedly with code -9
+2026-11-06 21:23:09,133 [INFO] (worker) Stopping controller reactive...
+2026-11-06 21:23:09,641 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:09,644 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:10,344 [WARNING] (worker) Executing <Task pending name='Task-50' coro=<Process.wait() running at /mnt/e/Projects/self-healing-sdn/backend/tests/test_controller_exit.py:20> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.141 seconds
+2026-11-06 21:23:10,364 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:10,899 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:10,901 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:11,439 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:11,510 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:11,513 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:12,202 [WARNING] (worker) Executing <Task pending name='Task-60' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.692 seconds
+2026-11-06 21:23:13,740 [ERROR] (worker) Managed Ryu listener on port 6653 is unavailable
+2026-11-06 21:23:13,840 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:14,366 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:14,368 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:14,917 [ERROR] (worker) Managed Ryu exited unexpectedly with code 2
+2026-11-06 21:23:14,926 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:15,442 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:15,444 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:16,008 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:16,531 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:16,534 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:17,085 [ERROR] (worker) Managed Ryu exited unexpectedly with code -9
+2026-11-06 21:23:17,104 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:17,621 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:17,624 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:18,167 [INFO] (worker) Stopping controller reactive...
+2026-11-06 21:23:18,688 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting fast_failover
+2026-11-06 21:23:18,689 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_ff.py
+2026-11-06 21:23:19,281 [INFO] (worker) Stopping controller fast_failover...
+.2026-11-06 21:23:19,805 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:19,806 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:20,351 [ERROR] (worker) Managed Ryu exited unexpectedly with code 7
+2026-11-06 21:23:20,360 [INFO] (worker) Stopping controller reactive...
+.2026-11-06 21:23:20,879 [INFO] (worker) Dataplane reset confirmed on ['s1'] before starting reactive
+2026-11-06 21:23:20,881 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:23:21,437 [ERROR] (worker) Managed Ryu exited unexpectedly with code 0
+2026-11-06 21:23:21,449 [INFO] (worker) Stopping controller reactive...
+......2026-11-06 21:23:22,046 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting reactive
+2026-11-06 21:23:22,557 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting fast_failover
+2026-11-06 21:23:23,073 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting baseline
+2026-11-06 21:23:23,584 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting fast_failover
+2026-11-06 21:23:24,102 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting baseline
+2026-11-06 21:23:24,617 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting reactive
+.2026-11-06 21:23:25,136 [ERROR] (worker) Controller switch to baseline failed: del-groups s2 failed
+.2026-11-06 21:23:25,658 [INFO] (worker) Dataplane reset confirmed on ['s1', 's2', 's3', 's4'] before starting reactive
+..2026-11-06 21:23:26,213 [INFO] (worker) Dataplane reset confirmed on [] before starting reactive
+2026-11-06 21:23:26,719 [INFO] (worker) Dataplane reset confirmed on [] before starting fast_failover
+.2026-11-06 21:23:26,732 [ERROR] (worker) Controller switch to baseline failed: old process still alive
+2026-11-06 21:23:27,245 [ERROR] (worker) Controller switch to baseline failed: Cannot switch controllers: OpenFlow port 6653 is still in use
+.2026-11-06 21:23:27,253 [INFO] (worker) Stopping controller None...
+.2026-11-06 21:23:27,293 [INFO] (worker) Cleaned OpenFlow flows and groups on s1, s2, s3, s4
+.2026-11-06 21:23:27,294 [ERROR] (worker) OVS command failed: ['ovs-ofctl', '--timeout=3', '-O', 'OpenFlow13', 'del-flows', 's1']
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 196, in _run_ovs
+    return subprocess.run(
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1179, in _execute_mock_call
+    result = effect(*args, **kwargs)
+  File "/mnt/e/Projects/self-healing-sdn/backend/tests/test_controller_switch.py", line 186, in fail
+    raise subprocess.CalledProcessError(1, args, stderr="OVS rejected reset")
+subprocess.CalledProcessError: Command '['ovs-ofctl', '--timeout=3', '-O', 'OpenFlow13', 'del-flows', 's1']' returned non-zero exit status 1.
+2026-11-06 21:23:27,308 [ERROR] (worker) OVS command failed: ['ovs-ofctl', '--timeout=3', '-O', 'OpenFlow13', 'del-groups', 's1']
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 196, in _run_ovs
+    return subprocess.run(
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1179, in _execute_mock_call
+    result = effect(*args, **kwargs)
+  File "/mnt/e/Projects/self-healing-sdn/backend/tests/test_controller_switch.py", line 186, in fail
+    raise subprocess.CalledProcessError(1, args, stderr="OVS rejected reset")
+subprocess.CalledProcessError: Command '['ovs-ofctl', '--timeout=3', '-O', 'OpenFlow13', 'del-groups', 's1']' returned non-zero exit status 1.
+....2026-11-06 21:23:27,315 [ERROR] (worker) OVS command failed: ['ovs-appctl', '--timeout=3', '-t', 'ovs-vswitchd', 'bridge/reconnect', 's1']
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 196, in _run_ovs
+    return subprocess.run(
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1179, in _execute_mock_call
+    result = effect(*args, **kwargs)
+  File "/mnt/e/Projects/self-healing-sdn/backend/tests/test_controller_switch.py", line 209, in fail
+    raise subprocess.CalledProcessError(1, args, stderr="cannot drop old session")
+subprocess.CalledProcessError: Command '['ovs-appctl', '--timeout=3', '-t', 'ovs-vswitchd', 'bridge/reconnect', 's1']' returned non-zero exit status 1.
+.../mnt/e/Projects/self-healing-sdn/backend/main.py:63: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/i7__6thgen/sdn-env/lib/python3.10/site-packages/fastapi/applications.py:4723: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  return self.router.on_event(event_type)  # ty: ignore[deprecated]
+/mnt/e/Projects/self-healing-sdn/backend/main.py:72: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+2026-11-06 21:23:29,874 [INFO] (worker) Shutting down SDN Control Center backend...
+..........................2026-11-06 21:23:32,329 [WARNING] (worker) Executing <Task pending name='Task-388' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[shield.<locals>._outer_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:864, Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.469 seconds
+......2026-11-06 21:23:32,619 [INFO] (worker) Starting traffic job exp_traffic_c27a3a91221e4dd5bf8e7d0d95e20b18: stdbuf -oL -eL ping -i 0.02 -c 300 -W 1 127.0.0.1 on h1
+.2026-11-06 21:23:40,822 [INFO] (worker) Starting traffic job exp_traffic_73543bcd692d4e60bd355bf5b2fababd: stdbuf -oL -eL ping -i 0.02 -c 300 -W 1 192.0.2.1 on h1
+..................../home/i7__6thgen/sdn-env/lib/python3.10/site-packages/eventlet/support/greenlets.py:1: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives
+  import distutils.version
+...2026-11-06 21:23:54,207 [INFO] (worker) Cleaned OpenFlow flows and groups on s1, s2, s3, s4, s5, s6, s7, s8, s9
+.....2026-11-06 21:23:56,974 [INFO] (worker) Building multipath_mesh topology connecting to controller 127.0.0.1:6653
+2026-11-06 21:23:56,975 [INFO] (worker) Starting Mininet network...
+2026-11-06 21:23:56,975 [INFO] (worker) Mininet network started successfully!
+2026-11-06 21:23:56,975 [INFO] (worker) Stopping Mininet network...
+2026-11-06 21:23:56,975 [INFO] (worker) Mininet network stopped and cleaned up.
+2026-11-06 21:23:56,975 [INFO] (worker) Building diamond topology connecting to controller 127.0.0.1:6653
+2026-11-06 21:23:56,976 [INFO] (worker) Starting Mininet network...
+2026-11-06 21:23:56,976 [INFO] (worker) Mininet network started successfully!
+.2026-11-06 21:23:56,977 [INFO] (worker) Building multipath_mesh topology connecting to controller 127.0.0.1:6653
+2026-11-06 21:23:56,978 [INFO] (worker) Starting Mininet network...
+2026-11-06 21:23:56,978 [INFO] (worker) Stopping Mininet network...
+2026-11-06 21:23:56,978 [INFO] (worker) Mininet network stopped and cleaned up.
+.....2026-11-06 21:23:57,069 [ERROR] (worker) Error starting Mininet: Mininet worker did not confirm the requested topology
+..................2026-11-06 21:23:58,527 [WARNING] (worker) Executing <Task finished name='Task-556' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.138 seconds
+....2026-11-06 21:23:59,734 [WARNING] (worker) Executing <Task finished name='Task-572' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.133 seconds
+.2026-11-06 21:24:00,132 [WARNING] (worker) Executing <Task finished name='Task-578' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.153 seconds
+...2026-11-06 21:24:00,795 [WARNING] (worker) Executing <Task finished name='Task-590' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.131 seconds
+..2026-11-06 21:24:01,296 [WARNING] (worker) Executing <Task finished name='Task-599' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.148 seconds
+.2026-11-06 21:24:02,010 [WARNING] (worker) Executing <Task pending name='Task-603' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.210 seconds
+2026-11-06 21:24:02,160 [WARNING] (worker) Executing <Task pending name='Task-603' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:95> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.125 seconds
+.2026-11-06 21:24:03,563 [WARNING] (worker) Executing <Task finished name='Task-613' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.121 seconds
+2026-11-06 21:24:03,778 [WARNING] (worker) Executing <Task pending name='Task-611' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:95> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.146 seconds
+.2026-11-06 21:24:04,294 [WARNING] (worker) Executing <Task finished name='experiment-7559f10d879d46afa30a60fb2eeb704a' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> result={'avg_rtt_ms': 2, 'controller': 'reactive', 'end_time': '2026-11-06T21:24:04.183116', 'failure_link': 's6-s9', ...} created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.112 seconds
+2026-11-06 21:24:04,502 [WARNING] (worker) Executing <Task finished name='experiment-593d54b51582478aad34b0dc6b1f9bef' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> result={'avg_rtt_ms': 2, 'controller': 'fast_failover', 'end_time': '2026-11-06T21:24:04.377464', 'failure_link': 's6-s9', ...} created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.126 seconds
+..2026-11-06 21:24:05,134 [WARNING] (worker) Executing <Task finished name='experiment-9ccaf63614544db09dbfeeef457783d2' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> exception=OperationError('Experiment failure link was not found') created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.125 seconds
+.2026-11-06 21:24:06,622 [WARNING] (worker) Executing <Task pending name='experiment-8490249dabdc465a890a3943aa12816f' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.257 seconds
+2026-11-06 21:24:06,798 [WARNING] (worker) Executing <Task finished name='Task-676' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.153 seconds
+2026-11-06 21:24:07,047 [WARNING] (worker) Executing <Task pending name='experiment-28e7aa9d3f8c4163897847afb7d0876a' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.146 seconds
+2026-11-06 21:24:07,260 [WARNING] (worker) Executing <Task finished name='Task-686' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.182 seconds
+2026-11-06 21:24:07,528 [WARNING] (worker) Executing <Task pending name='experiment-4fc32fc87a3442559f4c806b9f4bd55a' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.167 seconds
+2026-11-06 21:24:07,709 [WARNING] (worker) Executing <Task finished name='Task-696' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.162 seconds
+2026-11-06 21:24:07,976 [WARNING] (worker) Executing <Task pending name='experiment-aa8ddf0a20fb4a6f9bbcdaa0a0e6a529' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.148 seconds
+2026-11-06 21:24:08,170 [WARNING] (worker) Executing <Task finished name='Task-708' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.175 seconds
+2026-11-06 21:24:08,441 [WARNING] (worker) Executing <Task pending name='experiment-ae581705f5164507a139e2d5153afe5e' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.158 seconds
+2026-11-06 21:24:08,623 [WARNING] (worker) Executing <Task finished name='Task-718' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.162 seconds
+2026-11-06 21:24:08,906 [WARNING] (worker) Executing <Task pending name='experiment-d2a8defddf2749a5980583a6e13f6ed6' coro=<ExperimentRunner.run_experiment.<locals>.execute() running at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:78> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> cb=[shield.<locals>._inner_done_callback() at /usr/lib/python3.10/asyncio/tasks.py:847] created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.174 seconds
+2026-11-06 21:24:09,089 [WARNING] (worker) Executing <Task finished name='Task-728' coro=<RecoveryVerificationEngine.observe() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/recovery_verification.py:151> result=None created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.164 seconds
+.2026-11-06 21:24:10,576 [WARNING] (worker) Executing <Task finished name='experiment-a42f5d66f8e2429ebf869129e969810e' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> exception=OperationError('Experiment cleanup failed') created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.163 seconds
+..........2026-11-06 21:24:17,408 [ERROR] (worker) Controller switch to baseline failed: Dataplane cleanup failed
+.2026-11-06 21:24:17,425 [INFO] (worker) Dataplane reset confirmed on [] before starting reactive
+2026-11-06 21:24:17,427 [INFO] (worker) Starting Ryu controller: /home/i7__6thgen/sdn-env/bin/ryu-manager --observe-links --ofp-tcp-listen-port 6653 /mnt/e/Projects/self-healing-sdn/controller_reactive.py
+2026-11-06 21:24:17,604 [ERROR] (worker) Failed to start controller: Ryu did not open OpenFlow port 6653 within 10 seconds
+2026-11-06 21:24:17,604 [ERROR] (worker) Controller switch to reactive failed: Ryu did not open OpenFlow port 6653 within 10 seconds
+2026-11-06 21:24:17,605 [WARNING] (worker) Executing <Task pending name='Task-785' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Task pending name='Task-786' coro=<AsyncMockMixin._execute_mock_call() running at /usr/lib/python3.10/unittest/mock.py:2222> cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/tasks.py:337> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.189 seconds
+.......2026-11-06 21:24:18,928 [ERROR] (worker) Runtime request failed: /api/controllers/select
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/api/runtime_route.py", line 15, in runtime_handler
+    return await handler(request)
+  File "/home/i7__6thgen/sdn-env/lib/python3.10/site-packages/fastapi/routing.py", line 745, in app
+    raw_response = await run_endpoint_function(
+  File "/home/i7__6thgen/sdn-env/lib/python3.10/site-packages/fastapi/routing.py", line 372, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/mnt/e/Projects/self-healing-sdn/backend/api/controllers.py", line 17, in select_controller
+    return await controller_manager.select_controller(req.controller_type)
+  File "/usr/lib/python3.10/unittest/mock.py", line 2234, in _execute_mock_call
+    raise effect
+RuntimeError: secret /home/user/app.py
+.2026-11-06 21:24:19,021 [WARNING] (worker) Error stopping Mininet: Network operation failed
+2026-11-06 21:24:19,094 [WARNING] (worker) Error stopping Mininet: Network operation failed
+......2026-11-06 21:24:20,409 [WARNING] (worker) Executing <Task pending name='Task-947' coro=<IsolatedAsyncioTestCase._asyncioLoopRunner() running at /usr/lib/python3.10/unittest/async_case.py:101> wait_for=<Future pending cb=[Task.task_wakeup()] created at /usr/lib/python3.10/asyncio/base_events.py:429> created at /usr/lib/python3.10/unittest/async_case.py:117> took 0.111 seconds
+.2026-11-06 21:24:20,549 [ERROR] (worker) Error handling request: Unknown worker command
+2026-11-06 21:24:20,553 [ERROR] (worker) Error handling request: Worker request must be a JSON object
+2026-11-06 21:24:20,559 [ERROR] (worker) Error handling request: Network is not running
+2026-11-06 21:24:20,562 [ERROR] (worker) Error handling request: 'src'
+.2026-11-06 21:24:20,568 [ERROR] (worker) Failed to set link ('s1', 's2') to up
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 267, in set_link_status
+    raise RuntimeError("Interface state does not match requested state")
+RuntimeError: Interface state does not match requested state
+2026-11-06 21:24:20,570 [ERROR] (worker) Failed to set link ('s1', 's2') to down
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 264, in set_link_status
+    subprocess.run(["ip", "link", "set", intf.name, status],
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+subprocess.CalledProcessError: Command 'ip' returned non-zero exit status 1.
+..2026-11-06 21:24:20,578 [INFO] (worker) Stopping Mininet network...
+2026-11-06 21:24:20,578 [ERROR] (worker) Mininet stop failed
+Traceback (most recent call last):
+  File "/mnt/e/Projects/self-healing-sdn/backend/services/mininet_worker.py", line 108, in stop_network
+    self.net.stop()
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+RuntimeError: stop failed
+2026-11-06 21:24:20,580 [INFO] (worker) Stopping Mininet network...
+.2026-11-06 21:24:22,556 [WARNING] (worker) Executing <Task finished name='experiment-987467d877eb416eb81d6b0cc486c18a' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> result={'avg_rtt_ms': 2, 'controller': 'reactive', 'end_time': '2026-11-06T21:24:21.489557', 'failure_link': 's1-s2', ...} created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.067 seconds
+.2026-11-06 21:24:23,917 [WARNING] (worker) Executing <Task finished name='experiment-fa0bb17e683e4cb6a6851e60b2b07be3' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> exception=OperationError('Experiment runtime or controller changed') created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.124 seconds
+.2026-11-06 21:24:25,302 [WARNING] (worker) Executing <Task finished name='experiment-513fb038f6de4d1c9e112960ff68193e' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> exception=OperationError('Worker traffic ownership does not match requested job') created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.162 seconds
+..2026-11-06 21:24:27,128 [WARNING] (worker) Executing <Task finished name='experiment-0c7a2dc1cf7443d88fde83030718452d' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> result={'avg_rtt_ms': 2, 'controller': 'reactive', 'end_time': '2026-11-06T21:24:26.063266', 'failure_link': 's1-s2', ...} created at /usr/lib/python3.10/asyncio/tasks.py:337> took 1.067 seconds
+..2026-11-06 21:24:27,870 [WARNING] (worker) Executing <Task finished name='experiment-6bb2d7f3969f4ec9b2a6cd8a4ee82e17' coro=<ExperimentRunner.run_experiment.<locals>.execute() done, defined at /mnt/e/Projects/self-healing-sdn/backend/services/experiment_runner.py:72> exception=OperationError('Experiment cleanup failed') created at /usr/lib/python3.10/asyncio/tasks.py:337> took 0.266 seconds
+........2026-11-06 21:24:28,051 [INFO] (worker) Starting traffic job owned: stdbuf -oL -eL ping -i 0.05 -c 2 -W 1 10.0.0.2 on h1
+..............
+----------------------------------------------------------------------
+Ran 203 tests in 84.641s
+
+OK

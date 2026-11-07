@@ -45,7 +45,46 @@ def init_db():
         )
     """)
     conn.commit()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS recovery_verifications (
+        verification_id TEXT PRIMARY KEY, runtime_id TEXT NOT NULL,
+        experiment_id TEXT, failure_timestamp REAL NOT NULL, record_json TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS verification_history_time ON recovery_verifications(failure_timestamp DESC)")
+    conn.commit()
     conn.close()
+
+
+def save_verification(record):
+    conn = get_db_connection()
+    try:
+        conn.execute('''INSERT OR REPLACE INTO recovery_verifications
+            (verification_id, runtime_id, experiment_id, failure_timestamp, record_json) VALUES (?, ?, ?, ?, ?)''',
+            (record['verification_id'], record['runtime_id'], record.get('experiment_id'),
+             record['failure_timestamp'], json.dumps(record, allow_nan=False)))
+        conn.execute('''INSERT INTO event_logs (timestamp, level, source, message, details_json)
+            VALUES (?, ?, ?, ?, ?)''', (time.time(), 'INFO', 'SYSTEM',
+            'Recovery verification ' + record['verification_status'] + ': ' + record['reason'], json.dumps(record, allow_nan=False)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_verifications(limit=50):
+    conn = get_db_connection()
+    try:
+        return [json.loads(row['record_json']) for row in conn.execute(
+            'SELECT record_json FROM recovery_verifications ORDER BY failure_timestamp DESC LIMIT ?', (limit,))]
+    finally:
+        conn.close()
+
+
+def get_verification(verification_id):
+    conn = get_db_connection()
+    try:
+        row = conn.execute('SELECT record_json FROM recovery_verifications WHERE verification_id=?', (verification_id,)).fetchone()
+        return json.loads(row['record_json']) if row else None
+    finally:
+        conn.close()
 
 def save_experiment(record: Dict[str, Any]):
     record = experiment_metrics(record)

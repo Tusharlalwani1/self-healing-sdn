@@ -1,4 +1,5 @@
 import {
+  RecoveryVerification,
   ControllerInfo,
   TopologyId,
   TopologyOption,
@@ -49,6 +50,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getVerification: () => fetchJson<RecoveryVerification | null>('/api/verification/current'),
   // System
   getHealth: () => fetchJson<{ status: string }>("/api/system/health"),
   getSystemStatus: () => fetchJson<SystemStatus>("/api/system/status"),
