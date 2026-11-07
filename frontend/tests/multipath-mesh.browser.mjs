@@ -7,11 +7,12 @@ import { resolve, extname, sep } from 'node:path';
 import assert from 'node:assert/strict';
 import { meshSnapshot,meshOption,diamondOption } from './meshFixture.ts';
 
-const options=[diamondOption,meshOption], dist=resolve('dist'), out=resolve('../reports/multipath-mesh');
+const options=[diamondOption,meshOption], dist=resolve('dist'), out=resolve(process.env.SDN_QA_OUTPUT || '../reports/multipath-mesh');
 await mkdir(out,{recursive:true});
 let mode='reactive',running=false,topologyId='diamond',revision=1,records=[];
 let snapshot={...structuredClone(meshSnapshot),nodes:[],links:[],switches:[],hosts:[],active_paths:[]};
 const requests=[],checks=[],consoleErrors=[];
+let verificationFixtureState=null;
 function state(){return {...snapshot,topology_id:topologyId,topology_label:options.find(o=>o.id===topologyId).label,active_topology_id:running?topologyId:null,runtime_id:`fixture-${revision}`,runtime_revision:revision,simulation_state:running?'RUNNING':'STOPPED',active_controller:mode};}
 function network(id){
   if(id==='multipath_mesh')return structuredClone(meshSnapshot);
@@ -29,6 +30,7 @@ const server=createServer(async(req,res)=>{
     if(path==='/api/controllers/select'){mode=body.controller_type;return json({status:'ok',controller:mode});}
     if(path==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(path==='/api/events/logs')return json([]);
+    if(path==='/api/verification/current')return json(running && verificationFixtureState?.runtime_id===state().runtime_id ? verificationFixtureState : null);
     if(path==='/api/traffic/stats')return json({runtime_id:state().runtime_id,traffic_sequence:0,active:false,transmitted:0,received:0,loss_percent:0,duration_sec:0,history:[]});
     if(path==='/api/simulation/start'){topologyId=body.topology_id;mode=body.controller_type||mode;snapshot=network(topologyId);running=true;revision++;return json({status:'ok',...state()});}
     if(path==='/api/simulation/stop'){running=false;revision++;snapshot={...snapshot,nodes:[],links:[],switches:[],hosts:[],active_paths:[]};return json({status:'ok',...state()});}
@@ -79,6 +81,21 @@ try{
   await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await waitFor('!document.querySelector("dialog[open]")');
   await evaluate(`document.querySelector('button[aria-label="Inspect host h2"]').click()`);await waitFor('document.querySelector("dialog[open]")?.textContent.includes("10.0.0.2")');await evaluate(`document.querySelector('dialog[open] button[aria-label="Close inspector"]').click()`);
   await nav('simulator');await waitFor('document.querySelectorAll(".failuresimulator-page tbody tr").length===16');
+  // Phase 3 UI evidence only: these messages are controlled fixtures, not SDN
+  // measurements. Exercise production rendering and ownership over the real WS handler.
+  await evaluate(`window.__emit(${JSON.stringify({event_type:'INITIAL_STATE',runtime_id:state().runtime_id,runtime_revision:revision,controller:'reactive',controller_generation:'fixture-g1',controller_status:'READY',simulation_state:'RUNNING',active_paths:[],verification:null})})`);
+  const verificationFixture={verification_id:'fixture-verification',incident_id:null,runtime_id:state().runtime_id,runtime_revision:revision,topology_id:'multipath_mesh',controller_mode:'reactive',controller_generation:'fixture-g1',experiment_id:null,job_id:'fixture-job',source_host:'h1',destination_host:'h2',failed_link:['s6','s9'],failure_timestamp:1,verification_status:'VERIFYING',post_recovery_tx:null,post_recovery_rx:null,post_recovery_loss_percent:null,post_recovery_avg_rtt_ms:null,reachability_restored:null,stability_passed:null,path_verification_status:'UNAVAILABLE',reason:'Controlled browser fixture; not live SDN evidence.',evidence_scope:'Post-failure service evidence; local FF switching time not measured.'};
+  for(const status of ['VERIFYING','VERIFIED','DEGRADED','FAILED']){
+    const value={...verificationFixture,verification_duration_sec:null,verification_id:'fixture-'+status,verification_status:status,failure_timestamp:['VERIFYING','VERIFIED','DEGRADED','FAILED'].indexOf(status)+1};
+    verificationFixtureState=value;
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'RECOVERY_VERIFICATION',verification:value})})`);
+    await waitFor(`document.querySelector('.failuresimulator-page .panel .status')?.textContent===${JSON.stringify(status)}`);
+    assert.ok(await evaluate(`document.querySelector('.failuresimulator-page').textContent.includes('UNAVAILABLE')`));
+  }
+  await evaluate(`window.__emit(${JSON.stringify({event_type:'RECOVERY_VERIFICATION',verification:{...verificationFixture,runtime_id:'old-runtime',verification_status:'VERIFIED'}})})`);
+  assert.equal(await evaluate(`document.querySelector('.failuresimulator-page .panel .status')?.textContent`),'FAILED');
+  await screenshot('recovery-verification-fixture');
+  checks.push('Recovery verification production card renders all backend states, unknown path and unavailable metrics; rejects old-runtime WS evidence');
   await evaluate('Array.from(document.querySelectorAll(".failuresimulator-page tbody tr")).find(r=>r.textContent.includes("s6 ↔ s9")).querySelector("button").click()');
   await waitFor('Array.from(document.querySelectorAll(".failuresimulator-page tbody tr")).find(r=>r.textContent.includes("s6 ↔ s9")).textContent.includes("DOWN")');
   assert.deepEqual(requests.find(r=>r.path==='/api/links/down').body,{node1:'s6',node2:'s9'});

@@ -1,4 +1,5 @@
 import { ExecutionTimeline } from "../components/experiments/ExecutionTimeline";
+import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { PageHeader } from "../components/ui/Primitives";
 import React, { useState, useEffect } from "react";
 import {
@@ -103,6 +104,7 @@ export const ExperimentLabView: React.FC = () => {
       </div>
 
       {/* Main Form & Active Execution Card */}
+      <RecoveryVerificationCard />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Experiment Configuration Form */}
         <div className="lg:col-span-2 panel p-5 rounded-md border border-slate-800/80 space-y-4">
@@ -374,6 +376,7 @@ export const ExperimentLabView: React.FC = () => {
                 <th className="py-3 px-4">Packet Loss</th>
                 <th className="py-3 px-4">Controller Processing</th>
                 <th className="py-3 px-4">Avg RTT</th>
+                <th className="py-3 px-4">Service verification</th>
                 <th className="py-3 px-4 text-right">Reports</th>
               </tr>
             </thead>
@@ -418,6 +421,11 @@ export const ExperimentLabView: React.FC = () => {
                     {formatMetric(exp.avg_rtt_ms, " ms", 2)}
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">
+                    <details><summary>{exp.summary?.verification?.verification_status || 'Not recorded'}</summary>
+                      <RecoveryVerificationCard verification={exp.summary?.verification || null}/>
+                    </details>
+                  </td>
+                  <td className="py-3 px-4 text-right space-x-2">
                     <a
                       href={api.getExportUrl(exp.id, "html")}
                       target="_blank"
@@ -454,7 +462,7 @@ export const ExperimentLabView: React.FC = () => {
               {!experimentsHistory.length && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="text-center py-8 text-slate-500 italic"
                   >
                     No experiments logged yet. Run an experiment above to

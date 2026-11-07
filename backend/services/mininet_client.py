@@ -494,7 +494,7 @@ class MininetClient:
             raise OperationError(409, "Traffic job ID has already been used")
         self._traffic_sequence += 1
         owner = {"job_id": job_id, **self.runtime_context(), **self.controller_context(),
-                 "experiment_id": experiment_id, "traffic_sequence": self._traffic_sequence}
+                 "experiment_id": experiment_id, "traffic_sequence": self._traffic_sequence, "src": src, "dst": dst}
         # Reserve identity before IPC: a lost start acknowledgement can still
         # leave a worker job that exact-owner cleanup must be able to stop.
         self._traffic_owners[job_id] = owner

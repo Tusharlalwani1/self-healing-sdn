@@ -1,4 +1,5 @@
 import { ZapOff, RefreshCw } from "lucide-react";
+import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { useSDNStore } from "../stores/sdnStore";
 import {
   PageHeader,
@@ -25,6 +26,7 @@ export function FailureSimulatorView() {
         title="Test a broken path"
         description="Disconnect a specific reported link, observe the response, and restore connectivity."
       />
+      <RecoveryVerificationCard />
       <Panel title="Common link presets">
         <div className="preset-actions">
           <p className="muted">

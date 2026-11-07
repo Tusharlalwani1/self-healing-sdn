@@ -16,6 +16,7 @@ class PingAccounting:
     def __init__(self, stats):
         self.stats = stats
         self.final_seen = False
+        self.verification_windows = {}
 
     def feed(self, line, elapsed):
         stats = self.stats
@@ -46,3 +47,5 @@ class PingAccounting:
                 stats["history"].append({"seq": int(seq), "rtt": value,
                                          "success": True, "t": round(elapsed, 2)})
                 del stats["history"][:-200]
+        for window in self.verification_windows.values():
+            window.observe(line, elapsed, stats['transmitted'], bool(snapshot), bool(summary))

@@ -8,6 +8,7 @@ from backend.services.metrics import experiment_metrics, TIMING_SCOPE
 
 def export_record(record):
     return {**experiment_metrics(record), "topology_id": record.get("summary", {}).get("topology_id"),
+            "verification": record.get('summary', {}).get('verification'),
             "topology_label": record.get("summary", {}).get("topology_label"),
             "metric_semantics": {"recovery_duration_ms": TIMING_SCOPE,
             "packet_level_outage": "Not measured", "local_ff_switching_time": "Not measured"}}
@@ -29,7 +30,10 @@ class ReportGenerator:
             "id", "controller", "topology_id", "topology_label", "status", "start_time", "end_time",
             "packets_transmitted", "packets_received", "packet_loss_percent",
             "avg_rtt_ms", "min_rtt_ms", "max_rtt_ms", "failure_link",
-            "recovery_event", "controller_processing_ms", "timing_scope"
+            "recovery_event", "controller_processing_ms", "timing_scope",
+            "verification_status", "verification_reason", "post_recovery_tx", "post_recovery_rx",
+            "post_recovery_loss_percent", "post_recovery_avg_rtt_ms", "post_recovery_min_rtt_ms", "post_recovery_max_rtt_ms",
+            "path_verification_status", "verification_started_at", "verification_completed_at", "verification_duration_sec"
         ]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -39,6 +43,9 @@ class ReportGenerator:
             row["topology_label"] = exp.get("summary", {}).get("topology_label")
             row["controller_processing_ms"] = row.get("recovery_duration_ms")
             row["timing_scope"] = TIMING_SCOPE
+            verification = exp.get('summary', {}).get('verification') or {}
+            row.update({key: verification.get(key) for key in fieldnames if key.startswith(('post_recovery_', 'path_verification_', 'verification_'))})
+            row['verification_reason'] = verification.get('reason')
             writer.writerow({key: "N/A" if row.get(key) is None else row[key] for key in fieldnames})
         return output.getvalue()
 
@@ -51,6 +58,13 @@ class ReportGenerator:
         rec_str = f"{rec_ms:.1f} ms" if rec_ms is not None else "N/A"
         avg_rtt = experiment.get("avg_rtt_ms")
         avg_rtt_str = f"{avg_rtt:.2f} ms" if avg_rtt is not None else "N/A"
+        verification = experiment.get('summary', {}).get('verification') or {}
+        verification_rows = ''.join(f'<tr><td>{escape(key)}</td><td>{escape(str(display(verification.get(key))))}</td></tr>' for key in (
+            'verification_status', 'reason', 'controller_mode', 'topology_id', 'failed_link', 'failure_timestamp',
+            'post_recovery_tx', 'post_recovery_rx', 'post_recovery_loss_percent', 'post_recovery_avg_rtt_ms',
+            'post_recovery_min_rtt_ms', 'post_recovery_max_rtt_ms', 'reachability_restored', 'stability_passed',
+            'path_verification_status', 'path_verification_reason', 'verification_started_at',
+            'verification_completed_at', 'verification_duration_sec', 'evidence_scope'))
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -100,6 +114,8 @@ class ReportGenerator:
     </div>
 
     <h2>Detailed Telemetry Metrics</h2>
+    <h2>Independent Recovery Verification</h2>
+    <table>{verification_rows}</table>
     <p>{TIMING_SCOPE}. Packet-level outage and local FF switching time: not measured.</p>
     <table>
         <tr><th>Parameter</th><th>Value</th></tr>

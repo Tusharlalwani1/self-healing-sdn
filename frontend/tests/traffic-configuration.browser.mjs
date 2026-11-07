@@ -12,7 +12,7 @@ const initial = () => ({ runtime_id:runtime, traffic_sequence:0, active:false, t
 let stats=initial(), sequence=0, statsReads=0;
 const requests=[], consoleErrors=[], results=[];
 const dist=resolve('dist');
-const output=resolve('../reports/traffic-configuration');
+const output=resolve(process.env.SDN_QA_OUTPUT || '../reports/traffic-configuration');
 await mkdir(output,{recursive:true});
 const topology={runtime_id:runtime,runtime_revision:1,nodes:[],links:[],switches:[],hosts:[],active_controller:'reactive',simulation_state:'RUNNING',active_paths:[],backup_paths:[]};
 const server=createServer(async(req,res)=>{
@@ -24,6 +24,7 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/api/topology')return json(topology);
     if(url.pathname==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(url.pathname==='/api/events/logs')return json([]);
+    if(url.pathname==='/api/verification/current')return json(null);
     if(url.pathname==='/api/traffic/stats'){statsReads++;return json(stats);}
     if(url.pathname==='/api/traffic/start'&&req.method==='POST'){
       let body='';for await(const chunk of req)body+=chunk;

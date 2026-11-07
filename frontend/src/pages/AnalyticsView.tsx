@@ -1,4 +1,5 @@
 import { topologyLabel } from "../stores/topologySelectionStore";
+import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { PageHeader } from "../components/ui/Primitives";
 import React, { useEffect, useMemo, useState } from "react";
 import { controllerComparison, formatMetric } from "../services/metrics";
@@ -71,6 +72,12 @@ export const AnalyticsView: React.FC = () => {
           <option value="unknown">Topology not recorded</option>
         </select>
       </label>
+      <section className="panel"><div className="panel-heading"><h2>Recovery verification · loaded history</h2></div>
+        <div className="panel-body">{experimentsHistory.filter(exp => topologyFilter === 'all' || (exp.summary?.topology_id || 'unknown') === topologyFilter).map(exp =>
+          <details key={exp.id}><summary>{exp.id}: {exp.summary?.verification?.verification_status || 'Not recorded'}</summary>
+            <RecoveryVerificationCard verification={exp.summary?.verification || null}/></details>)}
+          {!experimentsHistory.length && <p>No recorded verification evidence.</p>}
+        </div></section>
       {/* 3 Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="panel p-5 rounded-md border border-rose-500/30 space-y-2">

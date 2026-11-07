@@ -12,6 +12,7 @@ import {
   EventLogEntry,
   SystemStatus,
   ExperimentRecord,
+  RecoveryVerification,
 } from "../types";
 import { api } from "../services/api";
 import { emptyTraffic, acceptTraffic } from "../services/telemetry";
@@ -21,6 +22,7 @@ import {
   mergeTopologySnapshot,
 } from "../services/topology";
 import { useTopologySelectionStore } from "./topologySelectionStore";
+import { isVerification } from '../services/verification';
 
 export type NavigationTab =
   | "overview"
@@ -34,6 +36,10 @@ export type NavigationTab =
   | "settings";
 
 interface SDNState {
+  verification: RecoveryVerification | null;
+  verificationError: string | null;
+  controllerGeneration: string | null;
+  fetchVerification: () => Promise<void>;
   currentTab: NavigationTab;
   setTab: (tab: NavigationTab) => void;
 
@@ -147,6 +153,8 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
       selectedNode: null,
       selectedLink: null,
       trafficStats: emptyTraffic(),
+      verification: null,
+      controllerGeneration: null,
     };
   }
   return {
@@ -160,8 +168,36 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
 let topologyRequestId = 0;
 let controllerStatusVersion = 0;
 let controllerRequestId = 0;
+let verificationVersion = 0;
+let verificationRequestId = 0;
+
+function ownsVerification(state: SDNState, value: RecoveryVerification) {
+  return state.simulationState === 'RUNNING' && state.controllerStatus === 'READY' && value.runtime_id === state.runtimeId &&
+    value.runtime_revision === state.runtimeRevision &&
+    value.controller_mode === state.activeController &&
+    (!state.controllerGeneration || value.controller_generation === state.controllerGeneration);
+}
 
 export const useSDNStore = create<SDNState>((set, get) => ({
+  verification: null,
+  verificationError: null,
+  controllerGeneration: null,
+  fetchVerification: async () => {
+    const version = verificationVersion;
+    const requestId = ++verificationRequestId;
+    const runtime = get().runtimeId;
+    try {
+      const value = await api.getVerification();
+      if (runtime !== get().runtimeId || version !== verificationVersion || requestId !== verificationRequestId) return;
+      if (value && !isVerification(value)) throw new Error('Invalid recovery verification response');
+      if (value && !ownsVerification(get(), value)) return;
+      set({ verification: value, verificationError: null,
+        ...(value ? {controllerGeneration: value.controller_generation} : {}) });
+    } catch (e: any) {
+      if (runtime === get().runtimeId && version === verificationVersion && requestId === verificationRequestId)
+        set({ verificationError: e.message });
+    }
+  },
   runtimeId: null,
   runtimeRevision: 0,
   experimentRunId: null,
@@ -238,6 +274,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   selectController: async (ctrl) => {
+    ++verificationVersion;
+    set({ verification: null, controllerGeneration: null });
     set({ loading: true, error: null });
     try {
       await api.selectController(ctrl);
@@ -286,6 +324,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   },
 
   stopSimulation: async () => {
+    ++verificationVersion;
+    set({ verification: null });
     const runtime = get().runtimeId;
     set({ loading: true, error: null });
     try {
@@ -562,6 +602,22 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   handleWebSocketMessage: (msg: any) => {
     const { event_type } = msg;
     if (!event_type) return;
+    if (event_type === 'RECOVERY_VERIFICATION') {
+      const value = msg.verification as RecoveryVerification | undefined;
+      if (!isVerification(value) || !ownsVerification(get(), value) ||
+          !get().controllerGeneration || value.controller_generation !== get().controllerGeneration) return;
+      const previous = get().verification;
+      if (previous && previous.verification_id === value.verification_id &&
+          previous.verification_status !== 'VERIFYING' && value.verification_status === 'VERIFYING') return;
+      if (previous && previous.failure_timestamp > value.failure_timestamp) return;
+      ++verificationVersion;
+      set({ verification: value, verificationError: null });
+      return;
+    }
+    if (event_type === 'CONTROLLER_STATUS') {
+      ++verificationVersion;
+      set({ verification: null, controllerGeneration: msg.controller_generation ?? null });
+    }
     if (
       ["INITIAL_STATE", "SIMULATION_STATUS", "TOPOLOGY_UPDATE"].includes(
         event_type,
@@ -573,9 +629,15 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       );
       if (patch === null) return;
       set(patch);
+      if (event_type === 'SIMULATION_STATUS' && msg.state !== 'RUNNING') {
+        ++verificationVersion;
+        set({ verification: null });
+      }
     }
 
     if (event_type === "INITIAL_STATE") {
+      ++verificationVersion;
+      set({ controllerGeneration: msg.controller_generation ?? null, verification: null });
       if (
         "experiment_run_id" in msg &&
         (!get().experimentRunning ||
@@ -620,6 +682,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
             : {}),
         }));
       }
+      // Adopt only after lifecycle and runtime hydration below; a follow-up
+      // REST request is also guarded against newer WebSocket transitions.
       set((s) =>
         topologyState(
           mergeTopology(s.topology, {
@@ -632,6 +696,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
           }),
         ),
       );
+      if (isVerification(msg.verification) && ownsVerification(get(), msg.verification))
+        set({ verification: msg.verification });
     } else if (event_type === "CONTROLLER_STATUS") {
       ++controllerStatusVersion;
       set((s) => ({

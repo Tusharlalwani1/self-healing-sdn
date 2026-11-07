@@ -1,0 +1,200 @@
+✔ controller failure removes healthy card/navbar indication without stopping Mininet (26.32711ms)
+✔ late READY REST reply cannot overwrite a newer failure WebSocket message (36.216997ms)
+✔ reconnect hydrates failed health separately from running simulation (2.857307ms)
+✔ fresh READY update restores healthy presentation (2.94628ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 480.887787
+✔ cancel waits for backend finalization, targets exact run, then shows CANCELLED (40.826285ms)
+✔ late COMPLETED cannot overwrite cancelled run terminal state (1.713227ms)
+✔ cleanup API failure is displayed and does not claim cancelled (1.579919ms)
+✔ FAILED cleanup websocket makes run terminal even when cancel HTTP fails (7.638252ms)
+✔ old cancellation response cannot finish replacement run B (2.402495ms)
+✔ late progress cannot remove CANCELLING while cleanup is pending (0.889231ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 267.486548
+✔ empty history produces no fabricated comparisons or charts (18.095462ms)
+✔ only completed persisted records contribute; failed/cancelled do not become samples (0.728226ms)
+✔ null is excluded from denominator, and measurement counts are exact (0.873404ms)
+✔ controller groups preserve association and baseline has no processing recovery sample (1.463147ms)
+✔ zero is retained; null, undefined and nonfinite numbers render N/A (1.092642ms)
+✔ no transmissions has unavailable loss; no replies has unavailable RTT (0.843374ms)
+✔ topology counts use reported arrays and exact link states without 4/2 fallbacks (0.965015ms)
+✔ processing history excludes unrelated success events and retains actual zero duration (0.475ms)
+✔ OVS counts exclude protocol headers; missing is N/A, measured empty is zero (0.697485ms)
+✔ analytics labels processing, shows measured sample count and no unsupported outage claim (7.263994ms)
+✔ traffic 100 percent loss retains actual counters and N/A RTT (5.341572ms)
+✔ history renders null as N/A and legitimate zero as zero (11.260713ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1268.325569
+✔ motion-enabled landing remains readable before effects and exposes real navigation links (28.736402ms)
+✔ illustrative recovery is explicitly separate from operational telemetry (3.374511ms)
+✔ metric and status animation preserves exact zero, unavailable and failure text (3.294972ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 331.60266
+✔ topology selection survives tabs and stopped-state hydration (46.126364ms)
+✔ mesh plus selected controller is explicit in start request; no missing confirmation fallback (4.671479ms)
+✔ mesh initial snapshot and sparse updates preserve identity; stale Diamond runtime cannot replace it (1.472481ms)
+✔ mesh layout and failure controls cover real 9-switch / 16-link graph without Diamond inventory (36.655374ms)
+✔ configured experiment choices follow selected topology without fabricating a running graph (1.723373ms)
+✔ topology selection and runtime changes do not reset traffic request draft (0.892274ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 590.303325
+✔ all nine navigation destinations round-trip, including trailing slash and overview (1.447624ms)
+✔ public landing labels its illustration and preserves architectural/measurement boundaries (32.564507ms)
+✔ layout includes every node without overlaps, unknown names or disconnected components (12.867619ms)
+✔ execution timeline highlights only the reported stage and does not invent recovery/cleanup milestones (1.69943ms)
+✔ failed experiment terminal message stays visible instead of an idle success presentation (7.786068ms)
+✔ host inspection exposes only reported host data and missing fields stay N/A (2.123298ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 460.079589
+✔ uses native randomUUID when available (3.196259ms)
+✔ HTTP-compatible getRandomValues fallback generates version 4 UUIDs (0.790112ms)
+✔ missing Web Crypto does not crash and yields distinct schema-compatible IDs (0.991292ms)
+✔ Run Automated Experiment sends the POST when randomUUID is unavailable (50.861048ms)
+✔ Run Automated Experiment also sends the POST when crypto is absent (4.862006ms)
+✔ fallback ID generation does not mask backend experiment errors (3.356655ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 253.936661
+✔ non-2xx rejects with backend message, string detail, and validation reason (40.026916ms)
+✔ legacy HTTP 200 operation failure and malformed JSON never resolve successfully (2.455623ms)
+✔ failed start does not show RUNNING and always clears loading (5.465981ms)
+✔ failed stop and reset reject, preserve current state, and finish loading (2.848341ms)
+✔ failed link down or up never fabricates a successful link state (1.393634ms)
+✔ partial restore rejects and refreshes actual partial state (1.586695ms)
+✔ healthy 16-link bulk restore posts once and refreshes real topology (1.707929ms)
+✔ mesh partial restore preserves 502 failure while loading actual remaining DOWN link (1.382981ms)
+✔ failed traffic start or stop does not claim the requested state (3.23071ms)
+✔ failed controller switch re-fetches backend status without claiming readiness (1.912861ms)
+✔ successful simulation, link, and traffic actions still update from confirmed replies (4.459789ms)
+✔ failed experiment ends pending state and preserves the backend error (1.734407ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 238.071974
+✔ A updates A, B starts fresh, delayed A tick/final/start cannot overwrite B (3.917229ms)
+✔ final same-job accounting stays final; later live tick cannot revive it (0.729839ms)
+✔ late REST A result cannot overwrite newer B (36.759582ms)
+✔ STOPPED removes live ownership; old runtime cannot revive after restart (1.619058ms)
+✔ controller switch does not relabel existing traffic (1.085425ms)
+✔ new start response cannot erase newer WS accounting for that job (1.626566ms)
+✔ old final stop HTTP response cannot finalize B (1.90515ms)
+✔ old experiment finish and progress cannot finalize or contaminate current run (0.638533ms)
+✔ late initial snapshot for A cannot replace B in the same runtime (0.592069ms)
+✔ older running lifecycle update cannot undo a confirmed stop revision (0.732883ms)
+✔ delayed stop-simulation acknowledgement cannot stop a newer runtime (1.199355ms)
+✔ reconnect hydrates current experiment, while stale snapshot cannot replace an owned run (2.362492ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 786.965066
+✔ raw worker WS keeps lifecycle, paths, and absent arrays after REST hydration (38.70724ms)
+✔ WS before hydration wins changed fields while late REST fills untouched metadata (2.269968ms)
+✔ older overlapping REST requests cannot undo a newer restoration (1.750437ms)
+✔ empty topology and explicit empty paths clear arrays without guessing STOPPED (1.576448ms)
+✔ explicit lifecycle states survive partial topology and late REST snapshots (15.506899ms)
+✔ reconnect snapshot hydrates paths and accepts explicit null controller (0.848639ms)
+✔ late controller-list hydration cannot undo a controller WS change (1.921585ms)
+✔ controller healing and restoration do not imply verified forwarding (1.140513ms)
+✔ mesh reverse-direction legacy path cannot imply Baseline recovery (0.892973ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 229.959065
+✔ WebSocket outage and recovery preserve worker cumulative accounting (2.178561ms)
+✔ stop adopts final drained counters rather than last live tick (35.031971ms)
+✔ confirmed new job resets previous totals and RTT (2.476319ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1048.722246
+✔ traffic request draft retains the original defaults (3.67892ms)
+✔ 500-packet request and subsequent telemetry preserve the entire user draft (38.239753ms)
+✔ 1000-packet request and subsequent telemetry preserve the entire user draft (2.338955ms)
+✔ 300-packet request and subsequent telemetry preserve the entire user draft (2.334998ms)
+✔ quick-action jobs and late result telemetry cannot replace next-request edits (1.583651ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 239.197808
+✔ backend transitions render all five states without frontend classification (454.265781ms)
+✔ no evidence renders unavailable loss and RTT rather than zero (2.644018ms)
+✔ historical experiments without Phase 3 evidence are not assigned a result (4.689171ms)
+✔ current WS evidence is accepted but old runtime and generation are rejected (1.556767ms)
+✔ malformed verification payload cannot crash monitoring or claim success (0.948365ms)
+✔ late VERIFYING and older incident cannot overwrite final service result (1.127223ms)
+✔ late REST snapshot cannot overwrite a newer WS final result (33.201591ms)
+✔ older overlapping verification REST request cannot replace a newer result (1.247239ms)
+✔ new controller generation clears old evidence and rejects old events (1.475098ms)
+✔ a failed controller cannot resurrect VERIFIED from a delayed same-generation message (1.048598ms)
+✔ reconnect restores only owned current evidence; stopped snapshot clears it (0.841537ms)
+✔ verification API error is visible without inventing a service result (2.440913ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 748.45596

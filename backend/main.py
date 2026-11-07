@@ -13,6 +13,9 @@ from backend.services.controller_manager import controller_manager
 from backend.services.mininet_client import mininet_client
 from backend.services.traffic_service import traffic_service
 from backend.services.experiment_runner import experiment_runner
+from backend.services.recovery_verification import verification_engine
+from backend.database.db import save_verification
+from backend.api.verification import router as verification_router
 from backend.api import (
     system_router,
     controllers_router,
@@ -55,16 +58,24 @@ app.include_router(links_router)
 app.include_router(traffic_router)
 app.include_router(experiments_router)
 app.include_router(reports_router)
+app.include_router(verification_router)
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing SQLite database...")
     init_db()
+    verification_engine.persist = save_verification
+    verification_engine.health = lambda record: (controller_manager.generation == record['controller_generation'] and
+                                                 controller_manager.status == 'READY')
     logger.info("SDN Control Center backend initialized.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down SDN Control Center backend...")
+    try:
+        await verification_engine.shutdown()
+    except Exception as exc:
+        logger.warning('Error finalizing verification on shutdown: %s', exc)
     try:
         await experiment_runner.shutdown()
     except Exception as e:
@@ -94,6 +105,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
             "traffic": traffic_service.snapshot(),
             "experiment_run_id": experiment_runner.current_run_id,
             "active_paths": [],  # Controller log intent is not verified forwarding.
+            "verification": verification_engine.current(),
             "timestamp": time.time()
         })
         while True:
