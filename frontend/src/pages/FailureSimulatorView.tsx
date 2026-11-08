@@ -1,3 +1,4 @@
+import { AdaptiveHealingCard } from '../components/AdaptiveHealingCard';
 import { ServiceIntentCard } from '../components/ServiceIntentCard';
 import { SoftDegradationPanel } from '../components/SoftDegradationPanel';
 import { ZapOff, RefreshCw } from "lucide-react";
@@ -29,7 +30,7 @@ export function FailureSimulatorView() {
         description="Disconnect a specific reported link, observe the response, and restore connectivity."
       />
       <RecoveryVerificationCard />
-      <ServiceIntentCard/>
+      <ServiceIntentCard/><AdaptiveHealingCard/>
       <SoftDegradationPanel/>
       <Panel title="Hard failure / common link presets">
         <div className="preset-actions">

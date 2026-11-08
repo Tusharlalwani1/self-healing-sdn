@@ -217,6 +217,10 @@ class ExperimentRunner:
             await self._step(mininet_client.start_traffic("h1", "h2", traffic_interval, packet_count, traffic_job_id, experiment_id=exp_id,
                 **({"service_intent": service_intent} if service_intent is not None else {})))
             traffic_started = time.monotonic()
+            if controller_type == 'adaptive':
+                from backend.services.adaptive_healing import adaptive_healing
+                adaptive_healing.external_job = {**mininet_client._traffic_owners[traffic_job_id], 'active': True}
+                await adaptive_healing.trigger('SERVICE_START')
 
             # 6. Wait for failure delay
             await self._sleep(failure_delay_sec)
@@ -231,9 +235,12 @@ class ExperimentRunner:
             failure_context = {**mininet_client.runtime_context(), **mininet_client.controller_context()}
             await self._step(mininet_client.set_link_status(fail_src, fail_dst, "down", experiment_id=exp_id,
                                                           expected_runtime=runtime_id))
-            verification = await verification_engine.begin(mininet_client, traffic_job_id,
-                [fail_src, fail_dst], t_fail, incident_id=exp_id, failure_context=failure_context)
-            verification_id = verification['verification_id']
+            if controller_type == 'adaptive':
+                await adaptive_healing.trigger('HARD_FAILURE', [fail_src, fail_dst])
+            else:
+                verification = await verification_engine.begin(mininet_client, traffic_job_id,
+                    [fail_src, fail_dst], t_fail, incident_id=exp_id, failure_context=failure_context)
+                verification_id = verification['verification_id']
             record['summary']['verification_id'] = verification_id
             save_event_log("WARNING", "EXPERIMENT", f"Injecting failure: disconnecting {fail_src} <-> {fail_dst}")
             await self._broadcast(run_id, {
@@ -258,6 +265,8 @@ class ExperimentRunner:
             while True:
                 check_context()
                 stats = await self._step(mininet_client.get_traffic_stats(traffic_job_id))
+                if controller_type == 'adaptive':
+                    adaptive_healing.external_job = stats
                 if stats.get("status") == "not_found" or not stats.get("active", True):
                     final_stats = stats
                     break
@@ -289,7 +298,16 @@ class ExperimentRunner:
                     not isinstance(final_stats.get("loss_percent"), (int, float))):
                 raise OperationError(502, "Experiment final packet accounting was incomplete")
 
-            record['summary']['verification'] = await self._step(verification_engine.wait(verification_id))
+            if controller_type == 'adaptive':
+                if adaptive_healing.cycle_task:
+                    await self._step(adaptive_healing.wait())
+                cycle = adaptive_healing.current()
+                record['summary']['adaptive'] = cycle
+                if cycle and cycle['attempts']:
+                    record['summary']['verification'] = cycle['attempts'][-1]['verification']
+                    record['summary']['intent_evaluation'] = cycle['attempts'][-1]['intent_evaluation']
+            else:
+                record['summary']['verification'] = await self._step(verification_engine.wait(verification_id))
 
             # 9. Extract performance metrics
             record["end_time"] = datetime.datetime.now().isoformat()
@@ -334,6 +352,14 @@ class ExperimentRunner:
             record["summary"]["error"] = public_error(exc)
         finally:
             cleanup_errors = []
+            if controller_type == 'adaptive':
+                from backend.services.adaptive_healing import adaptive_healing
+                try:
+                    await adaptive_healing.cancel('EXPERIMENT_ENDED', 'Experiment ended; no further adaptive action.')
+                    adaptive_healing.pending = None
+                    adaptive_healing.external_job = None
+                except Exception as exc:
+                    cleanup_errors.append('Adaptive finalization: ' + public_error(exc))
             if verification_id:
                 # Finish observation before restoring the injected link: manual
                 # restoration must never manufacture an experiment recovery.

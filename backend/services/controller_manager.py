@@ -46,6 +46,14 @@ class ControllerManager:
         await self.reconcile_health()
         return [
             {
+                "id": "adaptive", "name": "Adaptive Healing",
+                "description": "Intent-aware bounded path selection with checked flow installation and closed-loop service verification.",
+                "features": ["Deterministic candidate ranking", "Hard / soft triggers", "Bounded re-healing", "Measured verification"],
+                "status": self.status if self.active_controller == "adaptive" else "STOPPED",
+                "is_active": self.active_controller == "adaptive",
+                **(self.health_details() if self.active_controller == "adaptive" else {})
+            },
+            {
                 "id": "baseline",
                 "name": "Baseline Controller",
                 "description": "Shortest-path forwarding without automatic recovery on link failures. Drops packets until flow timeout.",
@@ -76,7 +84,7 @@ class ControllerManager:
 
     async def select_controller(self, controller_type: str, force_restart: bool = False) -> Dict[str, Any]:
         if controller_type not in RYU_APPS:
-            raise OperationError(422, "Unknown controller type; choose baseline, reactive, or fast_failover")
+            raise OperationError(422, "Unknown controller type; choose baseline, reactive, fast_failover, or adaptive")
 
         async with self._lifecycle_lock:
             if not force_restart and self.active_controller == controller_type and self.status == "READY":

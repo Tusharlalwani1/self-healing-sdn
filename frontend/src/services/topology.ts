@@ -61,6 +61,7 @@ export function mergeTopology(
     "baseline",
     "reactive",
     "fast_failover",
+    "adaptive",
   ];
 
   return {

@@ -11,7 +11,7 @@ const summaries = {
   NOT_EVALUATED: 'No service intent evaluation has been recorded.',
 };
 const controllerLabels: Record<string, string> = {
-  baseline: 'Baseline', reactive: 'Reactive', fast_failover: 'Fast Failover',
+  adaptive: 'Adaptive', baseline: 'Baseline', reactive: 'Reactive', fast_failover: 'Fast Failover',
 };
 
 export function ServiceIntentCard({evaluation, intent}: {evaluation?: IntentEvaluation | null; intent?: ServiceIntent | null}) {

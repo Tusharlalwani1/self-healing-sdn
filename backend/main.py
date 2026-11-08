@@ -18,6 +18,9 @@ from backend.database.db import save_verification, save_intent_evaluation
 from backend.api.intents import router as intents_router
 from backend.api.link_health import router as link_health_router
 from backend.services.link_health import link_health
+from backend.services.adaptive_healing import adaptive_healing
+from backend.api.adaptive import router as adaptive_router
+from backend.database.db import save_adaptive_cycle
 from backend.database.db import save_degradation_incident
 from backend.api.verification import router as verification_router
 from backend.api import (
@@ -65,6 +68,7 @@ app.include_router(reports_router)
 app.include_router(verification_router)
 app.include_router(intents_router)
 app.include_router(link_health_router)
+app.include_router(adaptive_router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -72,6 +76,8 @@ async def startup_event():
     init_db()
     link_health.persist = save_degradation_incident
     link_health.start()
+    adaptive_healing.persist = save_adaptive_cycle
+    adaptive_healing.start()
     verification_engine.persist = save_verification
     verification_engine.intent_engine.persist = save_intent_evaluation
     verification_engine.health = lambda record: (controller_manager.generation == record['controller_generation'] and
@@ -81,6 +87,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down SDN Control Center backend...")
+    await adaptive_healing.shutdown()
     await link_health.shutdown()
     try:
         await verification_engine.shutdown()
@@ -118,6 +125,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
             "verification": verification_engine.current(),
             "intent_evaluation": verification_engine.intent_engine.current(),
             "link_health": link_health.current(),
+            "adaptive": adaptive_healing.current(),
             "timestamp": time.time()
         })
         while True:

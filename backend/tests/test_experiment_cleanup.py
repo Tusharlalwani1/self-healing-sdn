@@ -68,6 +68,24 @@ class ExperimentCleanupTests(OwnershipFixture):
         self.assertEqual(record["packets_transmitted"], 7)
         self.assert_clean()
 
+    async def test_adaptive_experiment_retains_cycle_and_cancels_before_link_cleanup(self):
+        from backend.services import adaptive_healing as adaptive_module
+        cycle={'cycle_id':'fixture-cycle','attempts':[{'verification':{'verification_status':'VERIFIED'},
+            'intent_evaluation':{'evaluation_status':'SATISFIED'}}]}
+        adaptive=SimpleNamespace(external_job=None,pending=None,cycle_task=None,trigger=AsyncMock(),current=lambda:copy.deepcopy(cycle))
+        cancelled=[]
+        async def cancel(*args):cancelled.append(self.links[('s1','s2')])
+        adaptive.cancel=AsyncMock(side_effect=cancel)
+        with patch.object(adaptive_module,'adaptive_healing',adaptive):
+            result=await self.runner.run_experiment('adaptive',failure_delay_sec=0)
+        self.assertEqual(result['status'],'COMPLETED')
+        self.assertEqual(result['summary']['adaptive'],cycle)
+        self.assertEqual(result['summary']['intent_evaluation']['evaluation_status'],'SATISFIED')
+        self.assertEqual([c.args[0] for c in adaptive.trigger.await_args_list],['SERVICE_START','HARD_FAILURE'])
+        self.assertEqual(cancelled,['DOWN'])
+        self.assertIsNone(adaptive.external_job)
+        self.assert_clean()
+
     async def test_cancel_at_traffic_start_stops_exact_job_and_keeps_final_counts(self):
         await self.client.start_traffic("h1", "h2", .05, 1000, "manual")
         self.cancel_at("start_traffic")

@@ -28,7 +28,7 @@ export const ControllersView: React.FC = () => {
     <div className="page controllers-page">
       {/* Header */}
       <div>
-        <PageHeader eyebrow="OPERATIONS / CONTROLLERS" title="Choose a recovery strategy" description="Three architectures. One OpenFlow network. Controller readiness is reported independently of simulation state."/>
+        <PageHeader eyebrow="OPERATIONS / CONTROLLERS" title="Choose a recovery strategy" description="Four strategies. One OpenFlow network. Controller readiness is reported independently of simulation state."/>
       </div>
 
       {/* 3 Controller Cards */}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isAdaptive, type AdaptiveCycle } from '../services/adaptive';
 import { isHealthSnapshot, type HealthSnapshot } from '../services/linkHealth';
 import { createRequestId } from "../services/requestId";
 import {
@@ -38,6 +39,10 @@ export type NavigationTab =
   | "settings";
 
 interface SDNState {
+  adaptive: AdaptiveCycle | null;
+  adaptiveError: string | null;
+  fetchAdaptive: () => Promise<void>;
+  acceptAdaptive: (value: unknown) => void;
   softDegradationLinkKey: string | null;
   selectSoftDegradationLink: (key: string) => void;
   softDegradationDraft: {additionalDelayMs: string; lossPercent: string};
@@ -168,6 +173,7 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
       selectedNode: null,
       selectedLink: null,
       trafficStats: emptyTraffic(),
+      adaptive: null, adaptiveError: null,
       verification: null, intentEvaluation: null,
       linkHealth: null, linkHealthError: null,
       controllerGeneration: null,
@@ -216,6 +222,29 @@ function ownsIntent(state: SDNState, value: IntentEvaluation) {
 }
 
 export const useSDNStore = create<SDNState>((set, get) => ({
+  adaptive: null,
+  adaptiveError: null,
+  acceptAdaptive: (value) => {
+    const state = get();
+    if (!isAdaptive(value) || state.activeController !== 'adaptive' || state.simulationState !== 'RUNNING' ||
+        state.controllerStatus !== 'READY' || value.runtime_id !== state.runtimeId || value.runtime_revision !== state.runtimeRevision ||
+        value.controller_generation !== state.controllerGeneration || value.topology_id !== state.topology.topology_id ||
+        (state.trafficStats.traffic_sequence != null && (value.traffic_sequence < state.trafficStats.traffic_sequence ||
+          (value.traffic_sequence === state.trafficStats.traffic_sequence && !!state.trafficStats.job_id && value.job_id !== state.trafficStats.job_id)))) return;
+    const old = state.adaptive;
+    if (old && (old.created_at > value.created_at || (old.cycle_id === value.cycle_id && old.sequence > value.sequence))) return;
+    set({adaptive:value, adaptiveError:null});
+  },
+  fetchAdaptive: async () => {
+    const old = get().adaptive;
+    try {
+      const value = await api.getAdaptive();
+      if (value) get().acceptAdaptive(value);
+      else if (get().adaptive === old) set({adaptive:null,adaptiveError:null});
+    } catch (e: any) {
+      if (get().adaptive === old) set({adaptiveError:e.message});
+    }
+  },
   // Operator selection only: telemetry and network state never overwrite it.
   softDegradationLinkKey: null,
   selectSoftDegradationLink: (key) => set({softDegradationLinkKey:key}),
@@ -356,8 +385,14 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       )
         return;
       const active = list.find((c) => c.is_active)?.id || null;
+      const adaptiveController = list.find(c => c.is_active && c.id === 'adaptive');
       set((s) => ({
         controllers: list,
+        ...(adaptiveController ? {
+          controllerGeneration: adaptiveController.controller_generation ?? s.controllerGeneration,
+          ...(adaptiveController.status !== 'READY' || (adaptiveController.controller_generation &&
+            adaptiveController.controller_generation !== s.controllerGeneration) ? {adaptive:null,adaptiveError:null} : {}),
+        } : {adaptive:null,adaptiveError:null}),
         controllerStatus:
           list.find((c) => c.is_active)?.status || "NOT_SELECTED",
         ...(s.activeController === requestedController
@@ -373,7 +408,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
 
   selectController: async (ctrl) => {
     ++verificationVersion; ++intentVersion;
-    set({ verification: null, intentEvaluation: null, controllerGeneration: null });
+    set({ verification: null, intentEvaluation: null, controllerGeneration: null, adaptive:null,adaptiveError:null });
     set({ loading: true, error: null });
     try {
       await api.selectController(ctrl);
@@ -707,6 +742,8 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   handleWebSocketMessage: (msg: any) => {
     const { event_type } = msg;
     if (!event_type) return;
+    if (event_type === 'ADAPTIVE_HEALING') { get().acceptAdaptive(msg.adaptive); return; }
+    if (event_type === 'CONTROLLER_STATUS' || (event_type === 'SIMULATION_STATUS' && msg.state !== 'RUNNING')) set({adaptive:null,adaptiveError:null});
     if (event_type === 'LINK_HEALTH') {
       get().acceptLinkHealth(msg.health);
       if (msg.error && isHealthSnapshot(msg.health) && msg.health.runtime_id === get().runtimeId &&
@@ -760,6 +797,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
     if (event_type === "INITIAL_STATE") {
       ++verificationVersion; ++intentVersion;
       set({ controllerGeneration: msg.controller_generation ?? null, verification: null, intentEvaluation: null });
+      set({adaptive:null,adaptiveError:null});
       if (
         "experiment_run_id" in msg &&
         (!get().experimentRunning ||
@@ -823,6 +861,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (isIntentEvaluation(msg.intent_evaluation) && ownsIntent(get(), msg.intent_evaluation))
         set({intentEvaluation:msg.intent_evaluation, intentError:null});
       get().acceptLinkHealth(msg.link_health);
+      if (msg.adaptive) get().acceptAdaptive(msg.adaptive);
     } else if (event_type === "CONTROLLER_STATUS") {
       ++controllerStatusVersion;
       set((s) => ({
@@ -917,6 +956,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         )
       ) {
         if (event_type === "TRAFFIC_STARTED") ++trafficVersion;
+        if (get().adaptive && stats.traffic_sequence > get().adaptive!.traffic_sequence) set({adaptive:null,adaptiveError:null});
         if (intentReplacedByTraffic(get(), stats)) {
           ++intentVersion;
           set({intentEvaluation:null});

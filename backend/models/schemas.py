@@ -14,10 +14,10 @@ class ControllerInfo(BaseModel):
     failure_reason: Optional[str] = None
 
 class ControllerSelectRequest(BaseModel):
-    controller_type: Literal["baseline", "reactive", "fast_failover"]
+    controller_type: Literal["baseline", "reactive", "fast_failover", "adaptive"]
 
 class SimulationStartRequest(BaseModel):
-    controller_type: Optional[Literal["baseline", "reactive", "fast_failover"]] = None
+    controller_type: Optional[Literal["baseline", "reactive", "fast_failover", "adaptive"]] = None
     topology_id: Optional[Literal["diamond", "multipath_mesh"]] = None
 
 class NodeInfo(BaseModel):
@@ -94,7 +94,7 @@ class ExperimentRunRequest(BaseModel):
     service_intent: Optional[IntentSelection] = None
     topology_id: Optional[Literal["diamond", "multipath_mesh"]] = None
     run_id: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
-    controller: Literal["baseline", "reactive", "fast_failover", "comparison"] = "reactive"
+    controller: Literal["baseline", "reactive", "fast_failover", "adaptive", "comparison"] = "reactive"
     traffic_interval: float = Field(0.02, gt=0, allow_inf_nan=False)
     packet_count: int = Field(300, gt=0)
     failure_delay_sec: float = Field(2.0, ge=0, allow_inf_nan=False)
