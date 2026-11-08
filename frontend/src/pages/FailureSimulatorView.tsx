@@ -1,4 +1,5 @@
 import { ServiceIntentCard } from '../components/ServiceIntentCard';
+import { SoftDegradationPanel } from '../components/SoftDegradationPanel';
 import { ZapOff, RefreshCw } from "lucide-react";
 import { RecoveryVerificationCard } from '../components/RecoveryVerificationCard';
 import { useSDNStore } from "../stores/sdnStore";
@@ -29,7 +30,8 @@ export function FailureSimulatorView() {
       />
       <RecoveryVerificationCard />
       <ServiceIntentCard/>
-      <Panel title="Common link presets">
+      <SoftDegradationPanel/>
+      <Panel title="Hard failure / common link presets">
         <div className="preset-actions">
           <p className="muted">
             Check the reported active path before injecting a failure. A branch

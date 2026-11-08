@@ -1,4 +1,5 @@
 import { InspectorDrawer } from '../ui/InspectorDrawer';
+import { LinkHealthCard } from '../LinkHealthCard';
 import React, { useState } from 'react';
 import { X, ZapOff, CheckCircle2, ArrowRightLeft, Radio } from 'lucide-react';
 import { TopologyLink } from '../../types';
@@ -58,6 +59,7 @@ export const LinkInspectorModal: React.FC<LinkInspectorModalProps> = ({ link, on
 
         {/* Details */}
         <div className="p-6 space-y-4">
+          <LinkHealthCard src={link.src} dst={link.dst}/>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-3 rounded-md bg-slate-950/60 border border-slate-800">
               <div className="text-xs text-slate-500 uppercase font-semibold">Current State</div>

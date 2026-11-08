@@ -12,6 +12,7 @@ import {
 } from "../types";
 
 import type { IntentEvaluation, IntentSelection, ServiceIntent } from './intent';
+import type { HealthSnapshot } from './linkHealth';
 const BASE_URL = "";
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
@@ -51,6 +52,11 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getLinkHealth: () => fetchJson<HealthSnapshot>('/api/link-health'),
+  changeLinkQuality: (action: 'inject' | 'clear' | 'clear-all', request: {
+    runtime_id: string; runtime_revision: number; src?: string; dst?: string;
+    additional_delay_ms?: number; loss_percent?: number;
+  }) => fetchJson<{status:string}>(`/api/degradation/${action}`, {method:'POST',body:JSON.stringify(request)}),
   getIntentProfiles: () => fetchJson<ServiceIntent[]>('/api/intents/profiles'),
   validateIntent: (selection: IntentSelection) => fetchJson<ServiceIntent>('/api/intents/validate', {method:'POST', body:JSON.stringify(selection)}),
   getIntentEvaluation: () => fetchJson<IntentEvaluation | null>('/api/intents/evaluation/current'),

@@ -1,4 +1,6 @@
 import React, { useMemo } from "react";
+import { useCurrentLinkHealth } from '../LinkHealthCard';
+import { healthAppearance, linkKey } from '../../services/linkHealth';
 import {
   ReactFlow,
   Controls,
@@ -31,6 +33,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   onSelectNode,
   onSelectLink,
 }) => {
+  const health = useCurrentLinkHealth();
   const {
     topology,
     runtimeId,
@@ -116,13 +119,25 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         strokeWidth = 4;
       }
 
+      const record = health?.links.find(l => l.link_id === linkKey(pair.src,pair.dst));
+      const appearance = healthAppearance(pair.status,record?.health_status);
+      if (!isDown && record) {
+        label = appearance.label;
+        if (record.health_status === 'DEGRADED' || record.health_status === 'CRITICAL') {
+          stroke = appearance.color;
+          strokeDasharray = appearance.dash;
+          strokeWidth = 3;
+        }
+      }
+
       return {
         id: pair.id,
         source: pair.src,
         target: pair.dst,
         animated,
         label,
-        labelStyle: { fill: "#b64a41", fontWeight: 700, fontSize: 10 },
+        ariaLabel: `${pair.src} to ${pair.dst}: ${appearance.label}`,
+        labelStyle: { fill: appearance.color, fontWeight: 700, fontSize: 10 },
         labelBgStyle: { fill: "#fafbf7", fillOpacity: 0.95 },
         style: {
           stroke,
@@ -137,7 +152,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         },
       };
     });
-  }, [topology.links, topology.active_paths, selectedLink]);
+  }, [topology.links, topology.active_paths, selectedLink, health]);
 
   return (
     <div className="topology-canvas">

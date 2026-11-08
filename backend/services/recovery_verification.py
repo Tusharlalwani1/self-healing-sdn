@@ -130,12 +130,15 @@ class RecoveryVerificationEngine:
                       reason_code='OBSERVING', reason='Collecting counter-bounded post-failure service evidence.')
         self.started_clock[record['verification_id']] = time.monotonic()
         await self.publish(record)
-        deadline = time.monotonic() + self.config.timeout_sec
         try:
             await asyncio.wait_for(self.command(record, 'begin_verification'), self.config.timeout_sec)
         except Exception as exc:
             await self.complete(record, {}, 'MEASUREMENT_UNAVAILABLE', public_error(exc))
             return copy.deepcopy(record)
+        # Registration has its own bounded setup wait above. Lock/socket queue
+        # time before the worker creates the tap cannot consume the observation
+        # budget needed for the unchanged collection window and reply grace.
+        deadline = time.monotonic() + self.config.timeout_sec
         self.tasks[record['verification_id']] = asyncio.create_task(self.observe(record, deadline))
         return copy.deepcopy(record)
 

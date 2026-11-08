@@ -35,7 +35,7 @@ def validate_worker_result(result, command):
         # Compatibility with an already-running worker from before C05.
         if result.get("message") == "Network is not running":
             http_status = 409
-        raise OperationError(http_status, safe_message(result.get("message"), "Mininet operation failed; check worker logs"))
+        raise OperationError(http_status, safe_message(result.get("message"), "Mininet operation failed; check worker logs"), results=result.get('results'))
     if status == "not_found":
         raise OperationError(404, "Traffic job not found")
     if status == "not_running" and command != "get_topology":
