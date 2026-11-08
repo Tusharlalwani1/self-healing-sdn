@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { pathContains } from '../../services/adaptive';
 import { useCurrentLinkHealth } from '../LinkHealthCard';
 import { healthAppearance, linkKey } from '../../services/linkHealth';
 import {
@@ -34,6 +35,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   onSelectLink,
 }) => {
   const health = useCurrentLinkHealth();
+  const adaptive = useSDNStore(s => s.adaptive);
   const {
     topology,
     runtimeId,
@@ -130,13 +132,23 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         }
       }
 
+      const adaptiveOwned = adaptive?.runtime_id === runtimeId && adaptive.controller_generation === useSDNStore.getState().controllerGeneration;
+      const installed = adaptiveOwned && pathContains(adaptive.installed_path, pair.src, pair.dst);
+      const computed = adaptiveOwned && pathContains(adaptive.selected_candidate?.path, pair.src, pair.dst);
+      if (!isDown && (installed || computed)) {
+        // Keep physical/health failure appearance; label route provenance separately.
+        if (!record || !['CRITICAL','DEGRADED'].includes(record.health_status)) stroke = '#6b54a0';
+        strokeWidth = 4;
+        label = `${label || 'UP'} · ${installed ? 'Installed rules' : 'Candidate (computed)'}`;
+      }
+
       return {
         id: pair.id,
         source: pair.src,
         target: pair.dst,
         animated,
         label,
-        ariaLabel: `${pair.src} to ${pair.dst}: ${appearance.label}`,
+        ariaLabel: `${pair.src} to ${pair.dst}: ${appearance.label}${installed ? '; installed rules, dataplane path unobserved' : computed ? '; computed candidate' : ''}`,
         labelStyle: { fill: appearance.color, fontWeight: 700, fontSize: 10 },
         labelBgStyle: { fill: "#fafbf7", fillOpacity: 0.95 },
         style: {
@@ -152,7 +164,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         },
       };
     });
-  }, [topology.links, topology.active_paths, selectedLink, health]);
+  }, [topology.links, topology.active_paths, selectedLink, health, adaptive, runtimeId]);
 
   return (
     <div className="topology-canvas">

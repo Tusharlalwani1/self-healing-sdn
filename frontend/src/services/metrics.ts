@@ -10,7 +10,7 @@ export function formatMetric(value: unknown, unit = '', digits?: number): string
 }
 
 export function controllerComparison(records: ExperimentRecord[]) {
-  return [ ['baseline', 'Baseline'], ['reactive', 'Reactive'], ['fast_failover', 'Fast Failover'] ].flatMap(([id, name]) => {
+  return [ ['baseline', 'Baseline'], ['reactive', 'Reactive'], ['fast_failover', 'Fast Failover'], ['adaptive', 'Adaptive'] ].flatMap(([id, name]) => {
     const completed = records.filter(record => record.status === 'COMPLETED' && record.controller === id);
     if (!completed.length) return [];
     const average = (key: keyof ExperimentRecord) => {

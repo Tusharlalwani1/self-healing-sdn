@@ -1,4 +1,4 @@
-export type ControllerType = "baseline" | "reactive" | "fast_failover";
+export type ControllerType = "baseline" | "reactive" | "fast_failover" | "adaptive";
 export type TopologyId = "diamond" | "multipath_mesh";
 export interface TopologyOption {
   id: TopologyId;
@@ -15,6 +15,7 @@ export type ControllerStatus =
   "NOT_SELECTED" | "STARTING" | "READY" | "FAILED" | "STOPPED";
 
 export interface ControllerInfo {
+  controller_generation?: string | null;
   id: ControllerType;
   name: string;
   description: string;
@@ -159,7 +160,7 @@ export interface EventLogEntry {
   id?: number;
   timestamp: number;
   level: "INFO" | "WARNING" | "ERROR" | "SUCCESS";
-  source: "CONTROLLER" | "MININET" | "EXPERIMENT" | "SYSTEM" | "TRAFFIC";
+    source: "CONTROLLER" | "MININET" | "EXPERIMENT" | "SYSTEM" | "TRAFFIC" | "ADAPTIVE";
   message: string;
   details?: Record<string, any>;
 }

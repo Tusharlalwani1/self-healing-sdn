@@ -1,3 +1,4 @@
+import { AdaptiveHealingCard } from '../components/AdaptiveHealingCard';
 import { ServiceIntentCard } from '../components/ServiceIntentCard';
 import { NetworkHealthSummary } from '../components/LinkHealthCard';
 import { useState } from 'react';
@@ -26,7 +27,7 @@ export function OverviewView() {
     <Panel title="Traffic job" aside={<Status tone={trafficStats.active && !unavailable ? 'good' : 'neutral'}>{trafficStats.active && !unavailable ? 'STREAMING' : 'IDLE / LAST JOB'}</Status>}><div className="traffic-summary"><dl className="metric-row"><Metric label="Tx / Rx" value={`${trafficStats.transmitted} / ${trafficStats.received}`} note="Actual attempts / successful replies"/><Metric label="Packet loss" value={trafficStats.transmitted > 0 ? formatMetric(trafficStats.loss_percent,'%') : 'N/A'} note="Unanswered / transmitted"/><Metric label="Average RTT" value={formatMetric(trafficStats.avg_rtt,' ms',1)} note={`Last: ${formatMetric(trafficStats.last_rtt,' ms')}`}/></dl><div className="overview-rtt">{trafficStats.history?.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trafficStats.history}><XAxis dataKey="seq" stroke="#77796e" fontSize={11}/><YAxis stroke="#77796e" fontSize={11}/><Tooltip contentStyle={{background:'#fff',borderColor:'#d9d9cf',borderRadius:4}}/><Line type="linear" dataKey="rtt" name="RTT (ms)" stroke="#6b54a0" strokeWidth={2} dot={false} isAnimationActive={false}/></LineChart></ResponsiveContainer> : <EmptyState title="No RTT samples">Start traffic to measure round-trip latency.</EmptyState>}</div></div></Panel>
     <NetworkHealthSummary/>
     <RecoveryVerificationCard />
-      <ServiceIntentCard/>
+      <ServiceIntentCard/><AdaptiveHealingCard/>
     <SwitchInspectorModal node={inspectSwitch} onClose={() => setInspectSwitch(null)}/><LinkInspectorModal link={inspectLink} onClose={() => setInspectLink(null)}/>
   </div>;
 }

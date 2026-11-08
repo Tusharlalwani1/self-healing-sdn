@@ -29,7 +29,9 @@ export function SoftDegradationPanel() {
     finally {setBusy(false);}
   }
   return <Panel title="Soft degradation / link remains UP"><div className="panel-body soft-degradation">
-    <p className="muted">Apply real additional delay or loss in both directions. Detection only: this does not request rerouting or start Recovery Verification.</p>
+    <p className="muted">Apply real additional delay or loss in both directions. {state.activeController === 'adaptive'
+      ? 'Adaptive mode may automatically reroute and verify service when relevant route degradation is detected during active traffic.'
+      : 'Detection only: this does not request rerouting or start Recovery Verification.'}</p>
     <div className="health-controls">
       <label>Inter-switch link<select value={selectedKey || ''} onChange={e=>state.selectSoftDegradationLink(e.target.value)} disabled={disabled}>
         {!links.length&&<option value="">No runtime links</option>}{links.map(l=><option key={l.id} value={linkKey(l.src,l.dst)}>{l.src} ↔ {l.dst} ({l.status})</option>)}

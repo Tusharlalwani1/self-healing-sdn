@@ -16,6 +16,10 @@ async def link_down(req: LinkActionRequest):
     failure_requested_at = time.time()
     result = await mininet_client.set_link_status(req.node1, req.node2, "down", expected_runtime=failure_context['runtime_id'])
     # A successful injection triggers observation, never a recovery claim.
+    if mininet_client.controller_type == 'adaptive':
+        from backend.services.adaptive_healing import adaptive_healing
+        await adaptive_healing.trigger('HARD_FAILURE', [req.node1, req.node2], result)
+        return result
     await verification_engine.begin(mininet_client,
         before.get('job_id') if before.get('active') and before.get('runtime_id') == mininet_client.runtime_id else None,
         [req.node1, req.node2], failure_requested_at, before=before if before.get('job_id') else None,

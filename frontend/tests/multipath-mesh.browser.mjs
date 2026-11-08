@@ -13,7 +13,7 @@ await mkdir(out,{recursive:true});
 let mode='reactive',running=false,topologyId='diamond',revision=1,records=[];
 let snapshot={...structuredClone(meshSnapshot),nodes:[],links:[],switches:[],hosts:[],active_paths:[]};
 const requests=[],checks=[],consoleErrors=[];
-let verificationFixtureState=null, intentFixtureState=null;
+let verificationFixtureState=null, intentFixtureState=null, adaptiveFixtureState=null;
 const qualityFixture = new Map();
 let healthSequence=0;
 function healthFixture(){
@@ -44,7 +44,7 @@ const server=createServer(async(req,res)=>{
     let body={};if(req.method==='POST'){let raw='';for await(const c of req)raw+=c;body=raw?JSON.parse(raw):{};requests.push({path,body});}
     if(path==='/api/topology/options')return json(options);
     if(path==='/api/topology')return json(state());
-    if(path==='/api/controllers')return json(['baseline','reactive','fast_failover'].map(id=>({id,name:id,description:'Isolated browser fixture',features:[],is_active:id===mode,status:id===mode?'READY':'STOPPED'})));
+    if(path==='/api/controllers')return json(['baseline','reactive','fast_failover','adaptive'].map(id=>({id,name:id,description:'Isolated browser fixture',features:[],is_active:id===mode,status:id===mode?'READY':'STOPPED'})));
     if(path==='/api/controllers/select'){mode=body.controller_type;return json({status:'ok',controller:mode});}
     if(path==='/api/system/status')return json({os:'Test fixture',python_version:'N/A',controller_port:6653,mininet_available:false,ovs_service_running:false,openflow_port_active:false});
     if(path==='/api/events/logs')return json([]);
@@ -52,6 +52,7 @@ const server=createServer(async(req,res)=>{
     if(path==='/api/intents/evaluation/current')return json(running && intentFixtureState?.runtime_id===state().runtime_id ? intentFixtureState : null);
     if(path==='/api/verification/current')return json(running && verificationFixtureState?.runtime_id===state().runtime_id ? verificationFixtureState : null);
     if(path==='/api/link-health')return json(healthFixture());
+    if(path==='/api/adaptive/current')return json(mode==='adaptive' && running ? adaptiveFixtureState : null);
     if(path.startsWith('/api/degradation/')){
       assert.equal(body.runtime_id,state().runtime_id);assert.equal(body.runtime_revision,revision);
       const key=[body.src,body.dst].sort().join('-');
@@ -209,6 +210,51 @@ try{
   await nav('analytics');await select('Analytics topology','multipath_mesh');
   assert.ok(await evaluate(`document.querySelector('.analytics-page').textContent.includes('Violated: 1')`));
   checks.push('Experiment failure selector has 14 actual ISLs; mesh request/provenance retained; analytics topology filter works');
+  if(process.env.SDN_QA_ADAPTIVE==='1'){
+    await select('Active controller','adaptive');
+    await waitFor(`document.querySelector('select[aria-label="Active controller"]').value==="adaptive"`);
+    const candidate={candidate_id:'h1>s1>s3>s6>s9>h2',path:['h1','s1','s3','s6','s9','h2'],components:{configured_delay_sum_ms:0,configured_loss_risk_sum_percent:0,worst_observed_tc_loss_percent:null,observed_path_rtt_ms:null,policy_cost:18.123456},reason:'Fixture deterministic supported choice'};
+    adaptiveFixtureState={cycle_id:'fixture-adaptive',runtime_id:state().runtime_id,runtime_revision:revision,topology_id:'multipath_mesh',controller_generation:'fixture-g1',job_id:'fixture-adaptive-job',traffic_sequence:100,
+      created_at:200,sequence:5,status:'COMPLETED',outcome:'SATISFIED',trigger:'HARD_FAILURE',trigger_link:['s2','s5'],reason:'Recovery VERIFIED and service intent SATISFIED.',intent_snapshot:{name:'Standard'},
+      selected_candidate:candidate,installed_path:candidate.path,observed_path:null,path_scope:'Computed candidates and installed rules are not observed dataplane paths.',config:{max_attempts:3},candidates:[candidate],
+      attempts:[{attempt:1,status:'COMPLETED',candidate,verification:{verification_status:'VERIFIED',post_recovery_loss_percent:0,post_recovery_avg_rtt_ms:31.051428571},intent_evaluation:{evaluation_status:'SATISFIED'}}]};
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'INITIAL_STATE',...state(),controller:'adaptive',controller_generation:'fixture-g1',controller_status:'READY',adaptive:adaptiveFixtureState})})`);
+    await nav('simulator');await waitFor(`document.querySelector('.failuresimulator-page').textContent.includes('ADAPTIVE HEALING') && document.querySelector('.failuresimulator-page').textContent.includes('Attempt 1 of 3')`);
+    assert.ok(await evaluate(`document.querySelector('.adaptive-observed').textContent.includes('Observed dataplane path') && document.querySelector('.adaptive-observed').textContent.includes('Unavailable')`));
+    assert.ok(await evaluate(`document.querySelector('.adaptive-workflow').textContent.includes('31.05 ms RTT') && document.querySelector('.adaptive-workflow').textContent.includes('0% post-recovery loss')`));
+    assert.equal(await evaluate(`document.querySelector('.adaptive-healing-card details').open`),false);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.adaptive-workflow')).gridTemplateColumns.split(' ').length`),4);
+    assert.ok(await evaluate(`!document.querySelector('.failuresimulator-page').textContent.includes('18.123456')`));
+    await evaluate(`document.querySelector('.adaptive-healing-card').scrollIntoView({block:'center'})`);
+    await screenshot('adaptive-card-fixture');
+    await nav('topology');await waitFor(`document.querySelectorAll('.react-flow__edge[aria-label*="installed rules"]').length>0`);
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'ADAPTIVE_HEALING',adaptive:{...adaptiveFixtureState,runtime_id:'stale',outcome:'FAILED'}})})`);
+    await nav('overview');await waitFor(`document.querySelector('.overview-page').textContent.includes('ADAPTIVE HEALING')`);
+    assert.ok(await evaluate(`document.querySelector('.overview-page').textContent.includes('Recovery VERIFIED and service intent SATISFIED.')`));
+    await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.adaptive-workflow')).gridTemplateColumns.split(' ').length`),1);
+    await evaluate(`document.querySelector('.adaptive-healing-card').scrollIntoView({block:'center'})`);
+    await screenshot('adaptive-mobile-fixture');
+    const longRoute=['h1',`switch-${'long-name-'.repeat(20)}`,'s6','s9','h2'];
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'ADAPTIVE_HEALING',adaptive:{...adaptiveFixtureState,sequence:6,installed_path:longRoute}})})`);
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+    assert.ok(await evaluate(`Array.from(document.querySelectorAll('.adaptive-healing-card,.adaptive-route')).every(e=>e.scrollWidth<=e.clientWidth)`));
+    await screenshot('adaptive-long-path-fixture');
+    const first={...adaptiveFixtureState.attempts[0],intent_evaluation:{evaluation_status:'VIOLATED'}};
+    const second={...first,attempt:2,status:'VERIFYING',verification:null,intent_evaluation:null};
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'ADAPTIVE_HEALING',adaptive:{...adaptiveFixtureState,sequence:7,status:'VERIFYING',outcome:null,attempts:[first,second]}})})`);
+    assert.ok(await evaluate(`document.querySelector('.adaptive-healing-card').textContent.includes('Attempt 2 of 3') && document.querySelector('.adaptive-healing-card').textContent.includes('RE-HEALING')`));
+    assert.ok(await evaluate(`document.querySelector('.adaptive-outcome').textContent.includes('previous attempt restored connectivity but violated the service intent')`));
+    for(const [outcome,style,sequence] of [['BEST_ACHIEVABLE','warning',8],['FAILED','bad',9],['ESCALATED','warning',10]]){
+      await evaluate(`window.__emit(${JSON.stringify({event_type:'ADAPTIVE_HEALING',adaptive:{...adaptiveFixtureState,sequence,outcome}})})`);
+      assert.ok(await evaluate(`!!document.querySelector('.adaptive-outcome-${style}')`));
+    }
+    await evaluate(`window.__emit(${JSON.stringify({event_type:'ADAPTIVE_HEALING',adaptive:{...adaptiveFixtureState,sequence:11}})})`);
+    checks.push('Adaptive card four-step desktop workflow, measured 2-decimal RTT, collapsed details, installed/observed separation, stacked mobile, long route wrapping and re-healing/warning/failure states');
+    await cdp('Emulation.clearDeviceMetricsOverride');
+    checks.push('Adaptive fourth strategy, INITIAL_STATE hydration, compact card, collapsed numeric policy, installed-rule provenance, stale WS rejection and mobile layout (fixture only)');
+  }
   await click('Stop Simulation');await waitFor('document.querySelector(".runtime-status").textContent.includes("STOPPED")');
   await select('Network topology','diamond');await select('Active controller','baseline');await waitFor(`document.querySelector('select[aria-label="Active controller"]').value==="baseline"`);
   await click('Start Simulation');await waitFor('document.querySelector(".runtime-status").textContent.includes("RUNNING")');

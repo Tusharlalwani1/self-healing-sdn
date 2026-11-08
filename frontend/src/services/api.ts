@@ -52,6 +52,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getAdaptive: () => fetchJson<import('./adaptive').AdaptiveCycle | null>('/api/adaptive/current'),
   getLinkHealth: () => fetchJson<HealthSnapshot>('/api/link-health'),
   changeLinkQuality: (action: 'inject' | 'clear' | 'clear-all', request: {
     runtime_id: string; runtime_revision: number; src?: string; dst?: string;

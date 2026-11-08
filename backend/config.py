@@ -20,6 +20,7 @@ DB_PATH = DATA_DIR / "sdn_dashboard.db"
 CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6653
 RYU_APPS = {
+    "adaptive": BASE_DIR / "controller_adaptive.py",
     "baseline": BASE_DIR / "controller_baseline.py",
     "reactive": BASE_DIR / "controller_reactive.py",
     "fast_failover": BASE_DIR / "controller_ff.py"

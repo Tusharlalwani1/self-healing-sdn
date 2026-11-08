@@ -144,13 +144,14 @@ export const ExperimentLabView: React.FC = () => {
                 <option value="reactive">
                   Reactive Self-Healing (Ryu Reroute)
                 </option>
+                <option value="adaptive">Adaptive Healing</option>
                 <option value="fast_failover">
                   Fast Failover (OpenFlow 1.3 FF Group)
                 </option>
                 <option value="baseline">
                   Baseline (No Automatic Recovery)
                 </option>
-                <option value="comparison">★ Compare All 3 Controllers</option>
+                <option value="comparison">Compare Baseline / Reactive / Fast Failover</option>
               </select>
             </div>
 

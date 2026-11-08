@@ -60,8 +60,35 @@ def init_db():
         detected_at REAL NOT NULL, record_json TEXT NOT NULL
     )''')
     cursor.execute('CREATE INDEX IF NOT EXISTS degradation_history_time ON degradation_incidents(detected_at DESC)')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS adaptive_cycles (
+        cycle_id TEXT PRIMARY KEY, runtime_id TEXT NOT NULL,
+        created_at REAL NOT NULL, record_json TEXT NOT NULL
+    )''')
     conn.commit()
     conn.close()
+
+
+def save_adaptive_cycle(record):
+    conn = get_db_connection()
+    try:
+        encoded = json.dumps(record, allow_nan=False)
+        conn.execute('INSERT OR REPLACE INTO adaptive_cycles VALUES (?, ?, ?, ?)',
+            (record['cycle_id'], record['runtime_id'], record['created_at'], encoded))
+        conn.execute('INSERT INTO event_logs (timestamp, level, source, message, details_json) VALUES (?, ?, ?, ?, ?)',
+            (record['updated_at'], 'INFO', 'ADAPTIVE', 'Adaptive ' + (record['outcome'] or record['status']) + ': ' + record['reason'], encoded))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_adaptive_cycles(limit=50, cycle_id=None):
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('SELECT record_json FROM adaptive_cycles WHERE cycle_id = ?', (cycle_id,)) if cycle_id else conn.execute(
+            'SELECT record_json FROM adaptive_cycles ORDER BY created_at DESC LIMIT ?', (limit,))
+        return [json.loads(row['record_json']) for row in rows]
+    finally:
+        conn.close()
 
 
 def save_degradation_incident(record):

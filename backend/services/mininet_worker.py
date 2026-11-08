@@ -20,12 +20,14 @@ from typing import Dict, Any, Optional
 
 # Direct script execution uses system Python; package imports support tests.
 if __package__:
+    from .adaptive_forwarding import apply_path
     from .link_quality import LinkQuality
     from .ping_accounting import PingAccounting
     from .verification_window import VerificationWindow
     from .operation_error import OperationError, public_error, safe_message
     from .topology_catalog import TOPOLOGIES, topology_definition, populate_network
 else:
+    from adaptive_forwarding import apply_path
     from link_quality import LinkQuality
     from ping_accounting import PingAccounting
     from verification_window import VerificationWindow
@@ -515,6 +517,8 @@ class MininetWorker:
                     )
                 elif cmd == "stop":
                     resp = self.stop_network()
+                elif cmd == "apply_adaptive_path":
+                    resp = apply_path(self, req)
                 elif cmd == "get_topology":
                     resp = self.get_topology()
                 elif cmd == 'get_link_quality':
