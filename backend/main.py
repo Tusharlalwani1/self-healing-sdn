@@ -16,6 +16,9 @@ from backend.services.experiment_runner import experiment_runner
 from backend.services.recovery_verification import verification_engine
 from backend.database.db import save_verification, save_intent_evaluation
 from backend.api.intents import router as intents_router
+from backend.api.link_health import router as link_health_router
+from backend.services.link_health import link_health
+from backend.database.db import save_degradation_incident
 from backend.api.verification import router as verification_router
 from backend.api import (
     system_router,
@@ -61,11 +64,14 @@ app.include_router(experiments_router)
 app.include_router(reports_router)
 app.include_router(verification_router)
 app.include_router(intents_router)
+app.include_router(link_health_router)
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing SQLite database...")
     init_db()
+    link_health.persist = save_degradation_incident
+    link_health.start()
     verification_engine.persist = save_verification
     verification_engine.intent_engine.persist = save_intent_evaluation
     verification_engine.health = lambda record: (controller_manager.generation == record['controller_generation'] and
@@ -75,6 +81,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down SDN Control Center backend...")
+    await link_health.shutdown()
     try:
         await verification_engine.shutdown()
     except Exception as exc:
@@ -110,6 +117,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
             "active_paths": [],  # Controller log intent is not verified forwarding.
             "verification": verification_engine.current(),
             "intent_evaluation": verification_engine.intent_engine.current(),
+            "link_health": link_health.current(),
             "timestamp": time.time()
         })
         while True:

@@ -55,8 +55,36 @@ def init_db():
         runtime_id TEXT NOT NULL, created_at REAL NOT NULL, record_json TEXT NOT NULL
     )""")
     cursor.execute("CREATE INDEX IF NOT EXISTS intent_history_time ON intent_evaluations(created_at DESC)")
+    cursor.execute('''CREATE TABLE IF NOT EXISTS degradation_incidents (
+        incident_id TEXT PRIMARY KEY, runtime_id TEXT NOT NULL,
+        detected_at REAL NOT NULL, record_json TEXT NOT NULL
+    )''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS degradation_history_time ON degradation_incidents(detected_at DESC)')
     conn.commit()
     conn.close()
+
+
+def save_degradation_incident(record):
+    conn = get_db_connection()
+    try:
+        encoded = json.dumps(record, allow_nan=False)
+        conn.execute('INSERT INTO degradation_incidents VALUES (?, ?, ?, ?)',
+            (record['incident_id'], record['runtime_id'], record['detected_at'], encoded))
+        conn.execute('INSERT INTO event_logs (timestamp, level, source, message, details_json) VALUES (?, ?, ?, ?, ?)',
+            (record['detected_at'], 'WARNING' if record['current_health'] in ('DEGRADED', 'CRITICAL') else 'INFO',
+             'MININET', 'Link quality ' + record['link_id'] + ': ' + record['previous_health'] + ' -> ' + record['current_health'], encoded))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_degradation_incidents(limit=50):
+    conn = get_db_connection()
+    try:
+        return [json.loads(row['record_json']) for row in conn.execute(
+            'SELECT record_json FROM degradation_incidents ORDER BY detected_at DESC LIMIT ?', (limit,))]
+    finally:
+        conn.close()
 
 
 def save_intent_evaluation(record):

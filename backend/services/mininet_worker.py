@@ -20,11 +20,13 @@ from typing import Dict, Any, Optional
 
 # Direct script execution uses system Python; package imports support tests.
 if __package__:
+    from .link_quality import LinkQuality
     from .ping_accounting import PingAccounting
     from .verification_window import VerificationWindow
     from .operation_error import OperationError, public_error, safe_message
     from .topology_catalog import TOPOLOGIES, topology_definition, populate_network
 else:
+    from link_quality import LinkQuality
     from ping_accounting import PingAccounting
     from verification_window import VerificationWindow
     from operation_error import OperationError, public_error, safe_message
@@ -55,6 +57,7 @@ class MininetWorker:
         self.running = True
         self.runtime_id = None
         self.topology_id = None
+        self.link_quality = LinkQuality(self)
 
     @staticmethod
     def _clean_simulation_resources():
@@ -113,6 +116,7 @@ class MininetWorker:
 
         self._clean_simulation_resources()
         self.topology_id = None
+        self.link_quality.reset()
         logger.info("Mininet network stopped and cleaned up.")
         return {"status": "ok", "message": "Network stopped", "traffic_stats": finals}
 
@@ -256,6 +260,10 @@ class MininetWorker:
                  if {link.intf1.node.name, link.intf2.node.name} == {node1, node2}]
         if not links:
             raise OperationError(404, "Requested network link does not exist")
+        # Invalidate bounded quality windows even if DOWN -> UP occurs between
+        # polls, or an endpoint change fails partway through. No TC change here.
+        key = '-'.join(sorted((node1, node2)))
+        self.link_quality.revisions[key] = self.link_quality.revisions.get(key, 0) + 1
         try:
             self.net.configLinkStatus(node1, node2, status)
             for link in links:
@@ -509,6 +517,13 @@ class MininetWorker:
                     resp = self.stop_network()
                 elif cmd == "get_topology":
                     resp = self.get_topology()
+                elif cmd == 'get_link_quality':
+                    resp = self.link_quality.snapshot(req.get('runtime_id'))
+                elif cmd in ('inject_degradation', 'clear_degradation'):
+                    resp = self.link_quality.change(req.get('runtime_id'), req['src'], req['dst'],
+                        req.get('additional_delay_ms', 0), req.get('loss_percent', 0), clear=cmd == 'clear_degradation')
+                elif cmd == 'clear_all_degradations':
+                    resp = self.link_quality.clear_all(req.get('runtime_id'))
                 elif cmd == "reset_dataplane":
                     resp = self.reset_dataplane()
                 elif cmd == "set_link_status":
@@ -546,6 +561,8 @@ class MininetWorker:
                     e = OperationError(400, "Invalid worker request")
                     code = "invalid_request"
                 err_resp = {"status": "error", "error_code": code, "message": public_error(e)}
+                if isinstance(e, OperationError) and e.results is not None:
+                    err_resp['results'] = e.results
                 writer.write(json.dumps(err_resp).encode("utf-8") + b"\n")
                 await writer.drain()
 

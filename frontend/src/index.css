@@ -130,3 +130,18 @@
   .service-intent-card .intent-comparison td { padding:10px; }
   .service-intent-card .intent-technical-details dl > div { grid-template-columns:1fr; gap:2px; }
 }
+
+/* Phase 5: scoped link quality controls and evidence. */
+.health-controls { display:grid; grid-template-columns: minmax(160px,2fr) repeat(2,minmax(130px,1fr)); gap:16px; margin:18px 0; }
+.health-controls label { display:grid; gap:8px; font-size:12px; color:var(--muted); }
+.health-controls input,.health-controls select { width:100%; min-width:0; padding:10px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); color:var(--ink); }
+.health-actions { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.health-evidence-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 24px; margin:16px 0; }
+.health-evidence-grid dt,.health-counts dt { font-size:11px; color:var(--muted); }
+.health-evidence-grid dd,.health-counts dd { margin:6px 0 0; font-size:18px; font-variant-numeric:tabular-nums; }
+.health-counts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px; margin:0 0 14px; }
+.health-technical { display:grid; grid-template-columns:minmax(90px,1fr) minmax(0,3fr); gap:10px; margin-top:14px; font-size:12px; }
+.health-technical dd { margin:0; overflow-wrap:anywhere; }
+.link-health-card details summary { cursor:pointer; font-size:12px; }
+.soft-degradation > p,.link-health-card > p { font-size:12px; line-height:1.6; }
+@media(max-width:680px) { .health-controls { grid-template-columns:1fr; } .health-counts { grid-template-columns:repeat(3,1fr); } .health-evidence-grid { grid-template-columns:1fr; } }

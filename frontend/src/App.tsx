@@ -46,6 +46,7 @@ const Dashboard: React.FC = () => {
     fetchEvents();
     useSDNStore.getState().fetchVerification();
     useSDNStore.getState().fetchIntentEvaluation();
+    useSDNStore.getState().fetchLinkHealth();
 
     // Periodic telemetry polling fallback
     const interval = setInterval(() => {
@@ -53,6 +54,7 @@ const Dashboard: React.FC = () => {
       fetchTopology();
       useSDNStore.getState().fetchVerification();
       useSDNStore.getState().fetchIntentEvaluation();
+      useSDNStore.getState().fetchLinkHealth();
       if (simulationState === "RUNNING") {
         fetchTrafficStats();
       }

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isHealthSnapshot, type HealthSnapshot } from '../services/linkHealth';
 import { createRequestId } from "../services/requestId";
 import {
   ControllerInfo,
@@ -37,6 +38,15 @@ export type NavigationTab =
   | "settings";
 
 interface SDNState {
+  softDegradationLinkKey: string | null;
+  selectSoftDegradationLink: (key: string) => void;
+  softDegradationDraft: {additionalDelayMs: string; lossPercent: string};
+  updateSoftDegradationDraft: (changes: Partial<{additionalDelayMs: string; lossPercent: string}>) => void;
+  linkHealth: HealthSnapshot | null;
+  linkHealthError: string | null;
+  fetchLinkHealth: () => Promise<void>;
+  acceptLinkHealth: (value: unknown) => void;
+  changeLinkQuality: (action: 'inject' | 'clear' | 'clear-all', src?: string, dst?: string, delay?: number, loss?: number) => Promise<void>;
   intentEvaluation: IntentEvaluation | null;
   intentError: string | null;
   fetchIntentEvaluation: () => Promise<void>;
@@ -159,6 +169,7 @@ function runtimePatch(state: SDNState, payload: any): Partial<SDNState> | null {
       selectedLink: null,
       trafficStats: emptyTraffic(),
       verification: null, intentEvaluation: null,
+      linkHealth: null, linkHealthError: null,
       controllerGeneration: null,
     };
   }
@@ -177,6 +188,7 @@ let intentVersion = 0;
 let intentRequestId = 0;
 let verificationVersion = 0;
 let verificationRequestId = 0;
+let healthRequestId = 0;
 
 function ownsVerification(state: SDNState, value: Pick<RecoveryVerification, 'runtime_id' | 'runtime_revision' | 'controller_mode' | 'controller_generation'>) {
   return state.simulationState === 'RUNNING' && state.controllerStatus === 'READY' && value.runtime_id === state.runtimeId &&
@@ -204,6 +216,53 @@ function ownsIntent(state: SDNState, value: IntentEvaluation) {
 }
 
 export const useSDNStore = create<SDNState>((set, get) => ({
+  // Operator selection only: telemetry and network state never overwrite it.
+  softDegradationLinkKey: null,
+  selectSoftDegradationLink: (key) => set({softDegradationLinkKey:key}),
+  // Editable request draft, never hydrated from kernel configuration or telemetry.
+  softDegradationDraft: {additionalDelayMs:'100',lossPercent:'0'},
+  updateSoftDegradationDraft: (changes) => set(state => ({
+    softDegradationDraft: {...state.softDegradationDraft,...changes},
+  })),
+  linkHealth: null,
+  linkHealthError: null,
+  acceptLinkHealth: (value) => {
+    const state = get();
+    if (!isHealthSnapshot(value) || state.simulationState !== 'RUNNING' || value.simulation_state !== 'RUNNING' ||
+        value.runtime_id !== state.runtimeId || value.runtime_revision !== state.runtimeRevision ||
+        value.topology_id !== state.topology.topology_id || value.controller_generation !== state.controllerGeneration ||
+        (state.linkHealth && state.linkHealth.sequence > value.sequence)) return;
+    set({linkHealth:value, linkHealthError:null});
+  },
+  fetchLinkHealth: async () => {
+    const runtime = get().runtimeId, revision = get().runtimeRevision;
+    const request = ++healthRequestId, sequence = get().linkHealth?.sequence;
+    try {
+      const value = await api.getLinkHealth();
+      if (!isHealthSnapshot(value)) throw new Error('Invalid link health response');
+      if (request !== healthRequestId || runtime !== get().runtimeId || revision !== get().runtimeRevision) return;
+      if (get().simulationState !== 'RUNNING') {set({linkHealth:null}); return;}
+      get().acceptLinkHealth(value);
+    } catch (e: any) {
+      if (request === healthRequestId && sequence === get().linkHealth?.sequence && runtime === get().runtimeId && revision === get().runtimeRevision) set({linkHealth:null,linkHealthError:e.message});
+    }
+  },
+  changeLinkQuality: async (action, src, dst, delay, loss) => {
+    const state = get();
+    if (state.simulationState !== 'RUNNING' || !state.runtimeId) throw new Error('Start the simulation before changing link quality');
+    const request = {runtime_id:state.runtimeId,runtime_revision:state.runtimeRevision,
+      ...(action !== 'clear-all' ? {src,dst} : {}),
+      ...(action === 'inject' ? {additional_delay_ms:delay,loss_percent:loss} : {})};
+    try {
+      await api.changeLinkQuality(action, request);
+      await get().fetchLinkHealth();
+      await get().fetchEvents();
+    } catch (e: any) {
+      if (state.runtimeId === get().runtimeId) set({linkHealthError:e.message});
+      await get().fetchLinkHealth();
+      throw e;
+    }
+  },
   intentEvaluation: null,
   intentError: null,
   fetchIntentEvaluation: async () => {
@@ -648,6 +707,14 @@ export const useSDNStore = create<SDNState>((set, get) => ({
   handleWebSocketMessage: (msg: any) => {
     const { event_type } = msg;
     if (!event_type) return;
+    if (event_type === 'LINK_HEALTH') {
+      get().acceptLinkHealth(msg.health);
+      if (msg.error && isHealthSnapshot(msg.health) && msg.health.runtime_id === get().runtimeId &&
+          msg.health.runtime_revision === get().runtimeRevision && msg.health.topology_id === get().topology.topology_id &&
+          msg.health.controller_generation === get().controllerGeneration && (get().linkHealth?.sequence ?? -1) <= msg.health.sequence)
+        set({linkHealth:null,linkHealthError:msg.error});
+      return;
+    }
     if (event_type === 'INTENT_EVALUATION') {
       const value = msg.evaluation;
       if (!isIntentEvaluation(value) || !ownsIntent(get(), value)) return;
@@ -668,6 +735,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       return;
     }
     if (event_type === 'CONTROLLER_STATUS') {
+      set({linkHealth:null,linkHealthError:null});
       ++verificationVersion; ++intentVersion;
       set({ verification: null, intentEvaluation: null, controllerGeneration: msg.controller_generation ?? null });
     }
@@ -683,6 +751,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
       if (patch === null) return;
       set(patch);
       if (event_type === 'SIMULATION_STATUS' && msg.state !== 'RUNNING') {
+        set({linkHealth:null,linkHealthError:null});
         ++verificationVersion; ++intentVersion;
         set({ verification: null, intentEvaluation: null });
       }
@@ -753,6 +822,7 @@ export const useSDNStore = create<SDNState>((set, get) => ({
         set({ verification: msg.verification });
       if (isIntentEvaluation(msg.intent_evaluation) && ownsIntent(get(), msg.intent_evaluation))
         set({intentEvaluation:msg.intent_evaluation, intentError:null});
+      get().acceptLinkHealth(msg.link_health);
     } else if (event_type === "CONTROLLER_STATUS") {
       ++controllerStatusVersion;
       set((s) => ({

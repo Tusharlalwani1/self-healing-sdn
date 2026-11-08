@@ -9,6 +9,7 @@ import time
 import shutil
 import sys
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
@@ -18,10 +19,12 @@ from backend.database import db
 from backend.services import mininet_client as mc, mininet_worker as mw
 from backend.services.ping_accounting import PingAccounting
 from backend.services.recovery_verification import RecoveryVerificationEngine, classify
+from backend.services import recovery_verification as verification_service
 from backend.services.verification_config import VerificationConfig
 from backend.services.verification_window import VerificationWindow
 from backend.services.report_generator import report_generator
 from backend.services.operation_error import OperationError
+from backend.services.service_intent import resolve_intent
 from backend.tests.test_runtime_errors import request
 from backend.tests import test_mesh_experiments as mesh_tests
 from backend.services import experiment_runner as er
@@ -222,6 +225,91 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         result=await self.engine.wait(self.engine.latest['verification_id'])
         self.assertEqual(result['verification_status'],'VERIFIED')
         self.assertIsNone(result['before']['loss_percent'])
+
+    async def test_delayed_registration_keeps_full_observation_budget_for_44_successful_replies(self):
+        """Live Mesh regression: queue time must not consume collection/grace.
+
+        Real accounting/window logic; virtual monotonic time models slow worker
+        registration deterministically without sleeping for the live delay.
+        """
+        self.client.topology_id='multipath_mesh'
+        worker=mw.MininetWorker();worker.runtime_id=self.client.runtime_id
+        clock=[0.0]
+        origin=-36.096840001
+        job={'transmitted':441,'received':441,'history':[], 'active':True,
+             '_started_monotonic':origin,**self.client._traffic_owners['job']}
+        job['_accounting']=PingAccounting(job)
+        worker.traffic_jobs['job']=job
+        polls=[]
+        async def queued_command(payload,**kwargs):
+            if payload['command']=='begin_verification':
+                # The command's lock/socket queue consumes most of the old
+                # countdown before a worker-owned window can even exist.
+                clock[0]+=7.1
+                result=worker.verification_evidence(payload)
+                job['_accounting'].feed('743/745 packets, 0.2% loss',clock[0]-origin)
+                return result
+            if not polls:
+                start=clock[0]
+                for i in range(1,45):
+                    clock[0]=start+i*2.293151265/44
+                    job['_accounting'].feed(f'64 bytes: icmp_seq={745+i} ttl=64 time=32.07 ms',clock[0]-origin)
+                job['_accounting'].feed('787/789 packets, 0.2% loss',clock[0]-origin)
+            else:
+                clock[0]+=self.engine.config.reply_grace_sec+.001
+            result=worker.verification_evidence(payload)
+            polls.append(copy.deepcopy(result['evidence']))
+            return result
+        self.client._send_command=AsyncMock(side_effect=queued_command)
+        self.app.include_router(links.router)
+        with patch.object(verification_service,'time',SimpleNamespace(time=time.time,monotonic=lambda:clock[0])), \
+             patch.object(mw,'time',SimpleNamespace(monotonic=lambda:clock[0])), \
+             patch.object(links,'mininet_client',self.client), patch.object(links,'verification_engine',self.engine), \
+             patch.object(links.traffic_service,'snapshot',return_value={'job_id':'job','runtime_id':self.client.runtime_id,
+                 'active':True,'transmitted':441,'received':441,'avg_rtt':32.06}), \
+             patch.object(self.client,'set_link_status',AsyncMock(return_value={'status':'ok'})):
+            status,_=await request(self.app,'/api/links/down',{'node1':'s1','node2':'s2'})
+            self.assertEqual(status,200)
+            final=await self.engine.wait(self.engine.latest['verification_id'])
+        self.assertFalse(polls[0]['complete'])
+        self.assertEqual((polls[0]['post_recovery_tx'],polls[0]['post_recovery_rx']),(44,44))
+        self.assertEqual(polls[0]['reply_bins_observed'],2)
+        self.assertEqual(final['verification_status'],'VERIFIED')
+        self.assertTrue(polls[-1]['complete'])
+        self.assertEqual(final['reason_code'],'STABLE_SERVICE')
+        self.assertTrue(final['reachability_restored']);self.assertTrue(final['stability_passed'])
+        self.assertEqual((final['post_recovery_tx'],final['post_recovery_rx']),(44,44))
+        self.assertEqual(final['post_recovery_loss_percent'],0)
+        self.assertAlmostEqual(final['post_recovery_avg_rtt_ms'],32.07)
+        self.assertGreaterEqual(final['evidence']['observation_duration_sec'],2)
+        self.assertEqual(final['path_verification_status'],'UNAVAILABLE')
+        self.assertEqual(final['config'],VerificationConfig().as_dict())
+        self.assertTrue(job['active'])  # Traffic did not end to "complete" the window.
+        job['_accounting'].feed('1000 packets transmitted, 998 received, 0.2% packet loss',60)
+        self.assertEqual((job['transmitted'],job['received']),(1000,998))
+
+    async def test_measurement_registration_still_has_bounded_setup_timeout(self):
+        self.engine.config=VerificationConfig(timeout_sec=.12,observation_sec=.02,reply_grace_sec=.01,poll_sec=.005)
+        entered=asyncio.Event()
+        async def unavailable(*args,**kwargs):
+            entered.set()
+            await asyncio.Event().wait()
+        self.client._send_command=AsyncMock(side_effect=unavailable)
+        result=await asyncio.wait_for(self.begin(),1)
+        self.assertTrue(entered.is_set())
+        self.assertEqual((result['verification_status'],result['reason_code']),('FAILED','MEASUREMENT_UNAVAILABLE'))
+        self.assertIsNone(result['post_recovery_tx'])
+
+    async def test_incomplete_verification_can_independently_satisfy_intent_on_available_measurements(self):
+        self.engine.config=VerificationConfig(timeout_sec=.12,observation_sec=.02,reply_grace_sec=.01,poll_sec=.005)
+        self.client._traffic_owners['job']['service_intent']=resolve_intent()
+        self.result=evidence(tx=44,rx=44,rtt=32.07)
+        self.result['complete']=False
+        started=await self.begin();final=await self.engine.wait(started['verification_id'])
+        self.assertEqual((final['verification_status'],final['reason_code']),('FAILED','VERIFICATION_TIMEOUT'))
+        self.assertTrue(final['reachability_restored']);self.assertFalse(final['stability_passed'])
+        self.assertEqual(self.engine.intent_engine.latest['evaluation_status'],'SATISFIED')
+        self.assertEqual(final['path_verification_status'],'UNAVAILABLE')
 
     async def test_runtime_replaced_during_failure_ack_cannot_attribute_incident_to_replacement(self):
         self.app.include_router(links.router)

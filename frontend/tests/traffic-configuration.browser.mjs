@@ -28,6 +28,7 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/api/intents/profiles')return json(intentProfilesFixture);
     if(url.pathname==='/api/intents/evaluation/current')return json(null);
     if(url.pathname==='/api/verification/current')return json(null);
+    if(url.pathname==='/api/link-health')return json({runtime_id:runtime,runtime_revision:1,topology_id:'diamond',controller_generation:null,simulation_state:'RUNNING',sequence:1,links:[],threshold_label:'Project demonstration thresholds',config:{healthy_additional_delay_ms:10,critical_additional_delay_ms:100,healthy_loss_percent:1,critical_loss_percent:10}});
     if(url.pathname==='/api/traffic/stats'){statsReads++;return json(stats);}
     if(url.pathname==='/api/traffic/start'&&req.method==='POST'){
       let body='';for await(const chunk of req)body+=chunk;
